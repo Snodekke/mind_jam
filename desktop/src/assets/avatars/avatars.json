@@ -1,0 +1,129 @@
+{
+  "version": 4,
+  "grid": {
+    "columns": 6,
+    "rows": 4,
+    "frameWidth": 256,
+    "frameHeight": 256
+  },
+  "avatars": [
+    {
+      "id": "male",
+      "name": "Male",
+      "preview": "assets/avatars/male/preview.png",
+      "spriteSheet": "assets/avatars/male/spritesheet-normalized.png",
+      "animations": {
+        "idle": { "column": 0, "frames": 4, "fps": 3, "loop": true },
+        "victory": { "column": 1, "frames": 4, "fps": 6, "loop": false },
+        "raiseHand": { "column": 2, "frames": 4, "fps": 5, "loop": false },
+        "talk": { "column": 3, "frames": 4, "fps": 6, "loop": true },
+        "upset": { "column": 4, "frames": 4, "fps": 4, "loop": false },
+        "point": { "column": 5, "frames": 4, "fps": 5, "loop": false },
+        "thumbsUp": {
+          "column": 0,
+          "frames": 4,
+          "fps": 5,
+          "loop": false,
+          "spriteSheet": "assets/avatars/male/thumbs-up-normalized.png"
+        },
+        "thumbsDown": {
+          "column": 0,
+          "frames": 4,
+          "fps": 5,
+          "loop": false,
+          "spriteSheet": "assets/avatars/male/thumbs-down-normalized.png"
+        }
+      }
+    },
+    {
+      "id": "female",
+      "name": "Female",
+      "preview": "assets/avatars/female/preview.png",
+      "spriteSheet": "assets/avatars/female/spritesheet-normalized.png",
+      "animations": {
+        "idle": { "column": 0, "frames": 4, "fps": 3, "loop": true },
+        "victory": { "column": 1, "frames": 4, "fps": 6, "loop": false },
+        "raiseHand": { "column": 2, "frames": 4, "fps": 5, "loop": false },
+        "talk": { "column": 3, "frames": 4, "fps": 6, "loop": true },
+        "upset": { "column": 4, "frames": 4, "fps": 4, "loop": false },
+        "point": { "column": 5, "frames": 4, "fps": 5, "loop": false },
+        "thumbsUp": {
+          "column": 0,
+          "frames": 4,
+          "fps": 5,
+          "loop": false,
+          "spriteSheet": "assets/avatars/female/thumbs-up-normalized.png"
+        },
+        "thumbsDown": {
+          "column": 0,
+          "frames": 4,
+          "fps": 5,
+          "loop": false,
+          "spriteSheet": "assets/avatars/female/thumbs-down-normalized.png"
+        }
+      }
+    },
+    {
+      "id": "robot",
+      "name": "Spark",
+      "preview": "assets/avatars/robot/profile-preview.png",
+      "spriteSheet": "assets/avatars/robot/spritesheet.png",
+      "animations": {
+        "idle": { "column": 0, "frames": 4, "fps": 3, "loop": true },
+        "victory": { "column": 1, "frames": 4, "fps": 6, "loop": false },
+        "raiseHand": { "column": 2, "frames": 4, "fps": 5, "loop": false },
+        "talk": { "column": 3, "frames": 4, "fps": 6, "loop": true },
+        "upset": { "column": 4, "frames": 4, "fps": 4, "loop": false },
+        "point": { "column": 5, "frames": 4, "fps": 5, "loop": false },
+        "thumbsUp": {
+          "column": 0,
+          "frames": 4,
+          "fps": 5,
+          "loop": false,
+          "spriteSheet": "assets/avatars/robot/thumbs-up.png"
+        },
+        "thumbsDown": {
+          "column": 0,
+          "frames": 4,
+          "fps": 5,
+          "loop": false,
+          "spriteSheet": "assets/avatars/robot/thumbs-down.png"
+        }
+      }
+    },
+    {
+      "id": "schoolboy",
+      "name": "Schoolboy",
+      "columns": 8,
+      "preview": "assets/avatars/schoolboy/profile-preview.png",
+      "spriteSheet": "assets/avatars/schoolboy/spritesheet.png",
+      "animations": {
+        "idle": { "column": 0, "frames": 4, "fps": 3, "loop": true },
+        "victory": { "column": 1, "frames": 4, "fps": 6, "loop": false },
+        "raiseHand": { "column": 2, "frames": 4, "fps": 5, "loop": false },
+        "talk": { "column": 3, "frames": 4, "fps": 6, "loop": true },
+        "upset": { "column": 4, "frames": 4, "fps": 4, "loop": false },
+        "point": { "column": 5, "frames": 4, "fps": 5, "loop": false },
+        "thumbsUp": { "column": 6, "frames": 4, "fps": 5, "loop": false },
+        "thumbsDown": { "column": 7, "frames": 4, "fps": 5, "loop": false }
+      }
+    },
+    {
+      "id": "schoolgirl",
+      "name": "Schoolgirl",
+      "columns": 8,
+      "preview": "assets/avatars/schoolgirl/profile-preview.png",
+      "spriteSheet": "assets/avatars/schoolgirl/spritesheet.png",
+      "animations": {
+        "idle": { "column": 0, "frames": 4, "fps": 3, "loop": true },
+        "victory": { "column": 1, "frames": 4, "fps": 6, "loop": false },
+        "raiseHand": { "column": 2, "frames": 4, "fps": 5, "loop": false },
+        "talk": { "column": 3, "frames": 4, "fps": 6, "loop": true },
+        "upset": { "column": 4, "frames": 4, "fps": 4, "loop": false },
+        "point": { "column": 5, "frames": 4, "fps": 5, "loop": false },
+        "thumbsUp": { "column": 6, "frames": 4, "fps": 5, "loop": false },
+        "thumbsDown": { "column": 7, "frames": 4, "fps": 5, "loop": false }
+      }
+    }
+  ]
+}

@@ -1,0 +1,1035 @@
+{
+  "createdAt": "2026-08-20T08:09:12.013Z",
+  "finalThemes": [
+    {
+      "id": "theme-8235e535-ba6a-4e5a-986a-5dc9de4068e9",
+      "name": "Катастрофа",
+      "questions": [
+        {
+          "answerImage": null,
+          "answerText": "Николай II (1896 год)",
+          "catValue": null,
+          "id": "question-a04952d4-784f-498d-88f4-a67da2f0b58a",
+          "isCatInBag": false,
+          "media": null,
+          "text": "При каком императоре в России случилась «Ходынская катастрофа» (давка во время коронации)?",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": "theme-ba3f2ce4-1ca2-4a87-a604-58d6dfbe238d",
+      "name": "Борода",
+      "questions": [
+        {
+          "answerImage": null,
+          "answerText": "100 рублей в год с купцов и 60 копеек с крестьян при въезде в город.",
+          "catValue": null,
+          "id": "question-09ff5daa-502e-46ed-bd9f-55dd779b5c37",
+          "isCatInBag": false,
+          "media": null,
+          "text": "Известно, что Пётр I ввел моду на брадобритие. Но какой налог ввел Пётр на ношение бороды в 1698 году? (Назовите сумму или форму оплаты).",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": "theme-39f68d65-4ed0-4f1c-9b2d-63f6626933e1",
+      "name": "Поход",
+      "questions": [
+        {
+          "answerImage": null,
+          "answerText": "1185 год",
+          "catValue": null,
+          "id": "question-48c9c8ef-dc74-4758-bf47-38563295bd2b",
+          "isCatInBag": false,
+          "media": null,
+          "text": "В «Слове о полку Игореве» упоминается необычное событие: во время похода Игоря произошло солнечное затмение. В каком году (по современной истории) это произошло?",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": "theme-ffc92d84-277d-4d68-ba5f-6d7665a33f7f",
+      "name": "Семья",
+      "questions": [
+        {
+          "answerImage": null,
+          "answerText": "У неё случился выкидыш (она потеряла ребенка, которого ждала от Петра)",
+          "catValue": null,
+          "id": "question-4ac8ed36-2a72-4afb-a983-8f4a01ccbc9f",
+          "isCatInBag": false,
+          "media": null,
+          "text": "Мария Кантемир, дочь молдавского господаря, была фавориткой Петра I. Поговаривают, что Пётр задумывался о разводе с Екатериной ради неё. Назовите причину, по которой Кантемир потеряла расположение императора.",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": "theme-b69732ab-891f-495b-8f7f-b353a0d80ef7",
+      "name": "Тайна",
+      "questions": [
+        {
+          "answerImage": null,
+          "answerText": " В Успенском соборе Кремля (на коронации)",
+          "catValue": null,
+          "id": "question-60d1bc20-90ba-45a4-a959-017812d13cde",
+          "isCatInBag": false,
+          "media": null,
+          "text": "В 1730 году Верховный тайный совет предложил Анне Иоанновне «Кондиции» — ограничение власти. Анна их подписала, а потом разорвала. Вопрос: где именно в Москве она публично разорвала этот документ?",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": "theme-9135c3ba-c204-4704-881e-4ea7c9059e90",
+      "name": "Первый",
+      "questions": [
+        {
+          "answerImage": null,
+          "answerText": "Михаил Федорович",
+          "catValue": null,
+          "id": "question-31c77709-00db-4325-b897-923361abdff3",
+          "isCatInBag": false,
+          "media": null,
+          "text": "Назовите имя и отчество первого русского царя из династии Романовых.",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": "theme-c44ea692-d630-406e-8689-198b9bd37bdd",
+      "name": "Последний",
+      "questions": [
+        {
+          "answerImage": null,
+          "answerText": "Петр III Федорович",
+          "catValue": null,
+          "id": "question-979886b2-cdc5-44e4-aac2-7b39e6d0af35",
+          "isCatInBag": false,
+          "media": null,
+          "text": "Этот император правил всего 23 дня в 1762 году, после чего был свергнут своей женой. Назовите его.",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": "theme-a0384431-b306-4d47-ae4d-62af9dba21c4",
+      "name": "Первый в космосе",
+      "questions": [
+        {
+          "answerImage": null,
+          "answerText": "Кедр",
+          "catValue": null,
+          "id": "question-7b0f5f61-54ce-486d-a164-d5f4260f338b",
+          "isCatInBag": false,
+          "media": null,
+          "text": "Первый космонавт Земли, наш соотечественник Юрий Гагарин. Какое позывное было у Гагарина во время полета? ",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": "theme-17ba1939-e7d4-4d0a-ab96-5733d6185721",
+      "name": "Последняя война",
+      "questions": [
+        {
+          "answerImage": null,
+          "answerText": "Русско-турецкая 1877–1878",
+          "catValue": null,
+          "id": "question-6eaab841-6362-499c-8aa4-76e3dcc3351d",
+          "isCatInBag": false,
+          "media": null,
+          "text": "Последняя война, которую вел Александр II.",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": "theme-c2cac641-5542-413f-b935-70e8f9e271b0",
+      "name": "Образование",
+      "questions": [
+        {
+          "answerImage": null,
+          "answerText": "Санкт-Петербург",
+          "catValue": null,
+          "id": "question-c803a54a-197e-4afa-a174-fb97b3033304",
+          "isCatInBag": false,
+          "media": null,
+          "text": "Первый университет в России был открыт в 1724 году по указу Петра I. В каком городе? ",
+          "value": null
+        }
+      ]
+    }
+  ],
+  "gameType": "topic-clash",
+  "id": "pack-aaf03494-754b-4059-8485-961ceb06135f",
+  "name": "История России",
+  "rounds": [
+    {
+      "id": "round-11a66ebd-3ada-42e1-b13c-7ddad4830426",
+      "name": "Разминка",
+      "themes": [
+        {
+          "id": "theme-8263a472-07d8-4627-95e2-bc4e004b59ca",
+          "name": "Князья и цари",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Вещий Олег",
+              "catValue": 300,
+              "id": "question-1cd58478-f3f4-41c1-a375-2736e4dd8651",
+              "isCatInBag": true,
+              "media": null,
+              "text": "Этот князь объединил Киев и Новгород в 882 году и убил Аскольда и Дира.",
+              "value": 100
+            },
+            {
+              "answerImage": null,
+              "answerText": "Дмитрий Донской",
+              "catValue": null,
+              "id": "question-8483987b-3ac1-4324-8a48-7a320699d824",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Московский князь, получивший прозвище за победу на Дону.",
+              "value": 200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Иван IV Грозный",
+              "catValue": null,
+              "id": "question-4871edc5-e634-4d7b-9175-dac5067ee66e",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Первый русский царь, венчанный на престол митрополитом Макарием. ",
+              "value": 300
+            },
+            {
+              "answerImage": null,
+              "answerText": "Александр III",
+              "catValue": null,
+              "id": "question-c1a5b336-0acf-4c07-a05c-f7423bd6dbba",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Этот император получил прозвище «Миротворец», так как при нем Россия не воевала.",
+              "value": 400
+            },
+            {
+              "answerImage": null,
+              "answerText": "Александр Невский",
+              "catValue": null,
+              "id": "question-ef0fbe59-602a-451b-aa0b-f26ebf9f8f2a",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Князь, разбивший шведов в Невской битве и немцев в Ледовом побоище.",
+              "value": 500
+            }
+          ]
+        },
+        {
+          "id": "theme-9e01bcc4-f2ea-4a17-be4b-e2a9c9363512",
+          "name": "География в истории",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Санкт-Петербург",
+              "catValue": null,
+              "id": "question-88760861-94bb-45a3-a2d5-5300530c4ae8",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Город, который Петр I назвал «окном в Европу». ",
+              "value": 100
+            },
+            {
+              "answerImage": null,
+              "answerText": "Иртыш",
+              "catValue": null,
+              "id": "question-0f001df3-a1ff-40c6-af4c-ac8616501566",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Сибирская река, на берегах которой погиб Ермак.",
+              "value": 200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Чудское озеро",
+              "catValue": null,
+              "id": "question-a3837f36-628c-4a3b-8b17-3cdc6960bcb5",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Место сражения в 1240 году, где «немцы топили коней в весенней воде».",
+              "value": 300
+            },
+            {
+              "answerImage": null,
+              "answerText": "Волгоград (Сталинград)",
+              "catValue": null,
+              "id": "question-5bb866e6-7d7b-4af9-bdc9-1a445b2e230a",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Город-герой, стоявший на Волге во время Сталинградской битвы.",
+              "value": 400
+            },
+            {
+              "answerImage": null,
+              "answerText": "Крым",
+              "catValue": null,
+              "id": "question-a6c1168b-abe7-459a-a6f5-bc8d8873bd50",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Полуостров, который Россия получила по итогам Русско-турецкой войны 1768-1774 годов. ",
+              "value": 500
+            }
+          ]
+        },
+        {
+          "id": "theme-112c246c-089d-4c47-bac4-f8e0ada58b9f",
+          "name": "Культура и ремесла",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Нестор",
+              "catValue": null,
+              "id": "question-dc08a977-cc90-413e-b045-dbe5531d16fb",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Автор «Повести временных лет». ",
+              "value": 100
+            },
+            {
+              "answerImage": null,
+              "answerText": "Дерево",
+              "catValue": 600,
+              "id": "question-1548ebcf-64e3-4ad0-8cff-2fa9d57fe5ff",
+              "isCatInBag": true,
+              "media": null,
+              "text": "Строительный материал, из которого на Руси возводили дома до появления кирпича.",
+              "value": 200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Федор Тютчев",
+              "catValue": null,
+              "id": "question-684c4664-1204-4f0b-98ee-f9a679f4e1a6",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Русский поэт, автор строк «Умом Россию не понять...». ",
+              "value": 300
+            },
+            {
+              "answerImage": null,
+              "answerText": "Петр I",
+              "catValue": null,
+              "id": "question-e045d969-6604-4831-b27f-b1b9a33bab2a",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Первый русский музей (Кунсткамера) открыл этот император.",
+              "value": 400
+            },
+            {
+              "answerImage": null,
+              "answerText": "Золотая Хохлома (роспись по дереву)",
+              "catValue": null,
+              "id": "question-f9e289c8-de42-412a-9e8f-cf0cca8cbd12",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Народный промысел, родиной которого является село Хохлома. ",
+              "value": 500
+            }
+          ]
+        },
+        {
+          "id": "theme-44b8a21a-2a46-49d3-9ea0-9ea7f33aca05",
+          "name": "Битвы и оружие",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Ярлык",
+              "catValue": null,
+              "id": "question-a59ced6b-df4a-415f-a6d9-7e3d6e49c295",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Символ власти хана Золотой Орды, вручаемый князьям.",
+              "value": 100
+            },
+            {
+              "answerImage": null,
+              "answerText": "Междуречье Дона и Непрядвы",
+              "catValue": null,
+              "id": "question-0b4c191c-1055-4ecc-9695-32696cebecd8",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Место Куликовской битвы.",
+              "value": 200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Александр Суворов",
+              "catValue": 500,
+              "id": "question-c6a92ccd-1f13-43b6-8cd5-6756999e6591",
+              "isCatInBag": true,
+              "media": null,
+              "text": "Кто сказал: «Тяжело в учении — легко в бою»? ",
+              "value": 300
+            },
+            {
+              "answerImage": null,
+              "answerText": "Аврора",
+              "catValue": null,
+              "id": "question-79ec1ac0-92f8-4548-8b3f-09cbecdb58f2",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Крейсер, чей холостой выстрел стал сигналом к штурму Зимнего.",
+              "value": 400
+            },
+            {
+              "answerImage": null,
+              "answerText": "Кольчуга",
+              "catValue": null,
+              "id": "question-20583162-7d94-430f-b299-bf299f5e59b3",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Доспех русского воина, состоящий из металлических колец.",
+              "value": 500
+            }
+          ]
+        },
+        {
+          "id": "theme-f6d03cc0-617a-4c63-9f12-804d6bc20171",
+          "name": "Политика и реформы",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Александр II",
+              "catValue": null,
+              "id": "question-602827d1-72bc-4f89-87b4-f083ae06627f",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Кто отменил крепостное право в России? ",
+              "value": 100
+            },
+            {
+              "answerImage": null,
+              "answerText": "Киев",
+              "catValue": null,
+              "id": "question-a6fb5fd7-fb9d-41da-ac31-161b4228cefd",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Первая столица Древнерусского государства. ",
+              "value": 200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Ярослав Мудрый",
+              "catValue": null,
+              "id": "question-a7d1103b-f4cb-46ae-bc62-45e452b72d5d",
+              "isCatInBag": false,
+              "media": null,
+              "text": "При каком князе принят первый письменный свод законов «Русская Правда»?",
+              "value": 300
+            },
+            {
+              "answerImage": null,
+              "answerText": "Сергей Витте",
+              "catValue": null,
+              "id": "question-127d2792-0891-4578-92f7-f619d21e00d1",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Этот министр финансов провел денежную реформу 1897 года.",
+              "value": 400
+            },
+            {
+              "answerImage": null,
+              "answerText": "Аракчеев",
+              "catValue": null,
+              "id": "question-14bcbf00-66ea-4333-8519-d56d975ed4a6",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Создание первых военных поселений в России связано с именем этого графа.",
+              "value": 500
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "round-a1df63fd-1c6f-46ef-a0a7-f028027da5b5",
+      "name": "Умники",
+      "themes": [
+        {
+          "id": "theme-b4bd14aa-c5f7-47c6-9a24-3df0d51ce4a7",
+          "name": "Личности Смутного времени",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Григорий Отрепьев",
+              "catValue": null,
+              "id": "question-b40497fe-dacf-4967-8c0b-77de0af46cbc",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Лжедмитрий I, на самом деле, был беглым монахом по имени... ",
+              "value": 200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Дмитрий Пожарский",
+              "catValue": null,
+              "id": "question-e973fdfc-657e-401d-b584-faed39b937e9",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Кузьма Минин и этот князь возглавили Второе ополчение. ",
+              "value": 400
+            },
+            {
+              "answerImage": null,
+              "answerText": "Сигизмунд III",
+              "catValue": null,
+              "id": "question-3ef87436-d3c5-4202-a1e4-53284c0d3b13",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Польский король, призвавший Лжедмитрия в Москву. ",
+              "value": 600
+            },
+            {
+              "answerImage": null,
+              "answerText": "Федор Мстиславский",
+              "catValue": null,
+              "id": "question-e2973989-ef8a-4010-ac70-d9feca75ba7b",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Боярин, возглавивший Семибоярщину и присягнувший польскому королевичу Владиславу.",
+              "value": 800
+            },
+            {
+              "answerImage": null,
+              "answerText": "Гермоген",
+              "catValue": null,
+              "id": "question-1581f092-dc97-4556-bdbb-ece7c757e2e2",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Имя патриарха, призвавшего народ к сопротивлению полякам.",
+              "value": 1000
+            }
+          ]
+        },
+        {
+          "id": "theme-95f139d3-3665-4c4c-810e-4df6999a9855",
+          "name": "Эпоха дворцовых переворотов",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Екатерина II (34 года)",
+              "catValue": null,
+              "id": "question-123c3b60-01a8-4151-85a5-f0d70ddbf2b8",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Кто правил в России дольше всех в XVIII веке? ",
+              "value": 200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Петр III",
+              "catValue": null,
+              "id": "question-482a5797-cb0f-4744-b9bd-d43fee31d989",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Император, убитый в результате заговора в 1762 году.",
+              "value": 400
+            },
+            {
+              "answerImage": null,
+              "answerText": "Григорий Потемкин",
+              "catValue": null,
+              "id": "question-7b14791f-c201-4c7d-8350-f25163c13348",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Фаворит Екатерины II, фактический правитель Молдавии и генералиссимус.",
+              "value": 600
+            },
+            {
+              "answerImage": null,
+              "answerText": "Анна Иоанновна",
+              "catValue": null,
+              "id": "question-e2f467ac-de13-402f-a4b9-fe36e0f670a6",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Кондиции (ограничения власти) предлагались этой императрице при вступлении на престол. ",
+              "value": 800
+            },
+            {
+              "answerImage": null,
+              "answerText": "Ништадтский мир / Окончание Северной войны",
+              "catValue": null,
+              "id": "question-18b0c1ef-0e81-4802-b7e3-bdc8b2559669",
+              "isCatInBag": false,
+              "media": null,
+              "text": "В честь этого события Петр I ввел титул «Император» вместо «Царь». ",
+              "value": 1000
+            }
+          ]
+        },
+        {
+          "id": "theme-b28a8e4a-2744-4020-9b18-ba2ba39932ad",
+          "name": "Россия в XIX веке",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "1825",
+              "catValue": null,
+              "id": "question-59e4543a-58d8-462f-9ae0-70d6b204c564",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Восстание декабристов произошло в этом году. ",
+              "value": 200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Бородино / Отечественная война 1812 года",
+              "catValue": null,
+              "id": "question-ab8f2379-7c12-4200-8201-568d041b7e54",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Битва, в которой Наполеон потерпел сокрушительное поражение в России. ",
+              "value": 400
+            },
+            {
+              "answerImage": null,
+              "answerText": "Николай Лобачевский",
+              "catValue": null,
+              "id": "question-aa63ba7c-9be2-41d7-8894-5b376bdad383",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Создатель неевклидовой геометрии.",
+              "value": 600
+            },
+            {
+              "answerImage": null,
+              "answerText": "Париж",
+              "catValue": null,
+              "id": "question-057cc7e2-64c1-4464-9acd-bfe6bff12baf",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Город, в котором был подписан мирный договор, завершивший Крымскую войну.",
+              "value": 800
+            },
+            {
+              "answerImage": null,
+              "answerText": "Александр Головнин",
+              "catValue": null,
+              "id": "question-19bdde0f-be26-4bb3-9fa1-f80a511789e3",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Этот министр просвещения ввел «устав гимназий» и «положение о народных училищах» в 1864 году. ",
+              "value": 1000
+            }
+          ]
+        },
+        {
+          "id": "theme-cec3b7ba-2315-43fe-ad77-b7b0c9a26943",
+          "name": "Революции и Гражданская война",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Владимир Ленин",
+              "catValue": null,
+              "id": "question-aff6269f-aedc-45b6-9e6b-5843de47bc43",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Лидер большевиков в 1917 году. ",
+              "value": 200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Антон Деникин",
+              "catValue": null,
+              "id": "question-3b4003d2-3425-4506-b06c-acba4ac5d35c",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Белогвардейский генерал, возглавивший поход на Москву в 1919 году.",
+              "value": 400
+            },
+            {
+              "answerImage": null,
+              "answerText": "Аврора",
+              "catValue": 1000,
+              "id": "question-d3b1c807-7093-4950-badd-7494612d9868",
+              "isCatInBag": true,
+              "media": null,
+              "text": "Крейсер, ставший символом революции. ",
+              "value": 600
+            },
+            {
+              "answerImage": null,
+              "answerText": "Брестский мир",
+              "catValue": null,
+              "id": "question-5f283b18-a951-41ff-8075-3072e4ca9468",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Договор, по которому Россия вышла из Первой мировой войны.",
+              "value": 800
+            },
+            {
+              "answerImage": null,
+              "answerText": "Александр Керенский",
+              "catValue": null,
+              "id": "question-24f8df3b-528d-4d5a-8fd7-fcfb6d95fe7b",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Председатель Временного правительства в 1917 году. ",
+              "value": 1000
+            }
+          ]
+        },
+        {
+          "id": "theme-a8abe2d4-bb5c-46d3-acb6-5f84ad38d6d5",
+          "name": "Великая Отечественная война",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Ленинград",
+              "catValue": null,
+              "id": "question-11b4b251-33d8-4680-843f-f913a3787e33",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Город-герой, блокада которого длилась почти 900 дней.",
+              "value": 200
+            },
+            {
+              "answerImage": null,
+              "answerText": "План «Барбаросса»",
+              "catValue": null,
+              "id": "question-9c2fc59c-af85-4e28-aa6d-8abe16401595",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Название плана нападения Германии на СССР. ",
+              "value": 400
+            },
+            {
+              "answerImage": null,
+              "answerText": "Георгий Жуков",
+              "catValue": null,
+              "id": "question-c7726713-29e2-40ba-8433-67b3404b4ec9",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Маршал, принимавший Парад Победы в 1945 году. ",
+              "value": 600
+            },
+            {
+              "answerImage": null,
+              "answerText": "Иван Кожедуб",
+              "catValue": null,
+              "id": "question-9445291f-2ff1-425b-9eaa-11522cd4e22f",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Советский летчик, сбивший 26 самолетов и ставший трижды Героем СССР.",
+              "value": 800
+            },
+            {
+              "answerImage": null,
+              "answerText": "Приказ Сталина от 28 июля 1942 года",
+              "catValue": null,
+              "id": "question-625d02c4-31ec-4f84-b0c6-3394155d650a",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Этот приказ № 227 известен как «Ни шагу назад!».",
+              "value": 1000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "round-eb0790be-6194-4b38-8f28-aae413f56c3f",
+      "name": "Битва интеллектов",
+      "themes": [
+        {
+          "id": "theme-fe69d02e-bd96-49f1-9b89-7674edd2fb26",
+          "name": "Династия Романовых",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Михаил Федорович",
+              "catValue": null,
+              "id": "question-d4415324-d65c-4450-8a9a-44b69cd0b89c",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Первый царь из династии Романовых. ",
+              "value": 300
+            },
+            {
+              "answerImage": null,
+              "answerText": "Николай II",
+              "catValue": null,
+              "id": "question-414bae80-ee6f-4d1a-9951-703b26fb2608",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Император, который отрекся от престола в феврале 1917 года. ",
+              "value": 600
+            },
+            {
+              "answerImage": null,
+              "answerText": "Марта Скавронская",
+              "catValue": null,
+              "id": "question-4b65e78a-a96a-4fd7-8131-20bcb92c9a57",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Прозвище Екатерины I до замужества.",
+              "value": 900
+            },
+            {
+              "answerImage": null,
+              "answerText": "Екатеринбург",
+              "catValue": null,
+              "id": "question-54d76cf8-2c47-4b12-9268-2a9562426fbe",
+              "isCatInBag": false,
+              "media": null,
+              "text": "В каком городе был расстрелян Николай II",
+              "value": 1200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Александр I",
+              "catValue": null,
+              "id": "question-6293f5ec-8fd3-4e88-902e-6d8de45815fd",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Именно этот император ввел в России военные поселения. ",
+              "value": 1500
+            }
+          ]
+        },
+        {
+          "id": "theme-e244b0e6-da3f-4281-aea5-23886d7cd46c",
+          "name": "Архитектура и зодчество",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Храм Василия Блаженного",
+              "catValue": null,
+              "id": "question-0cb5d0f6-8db7-422c-92ce-5f87ddf518fc",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Собор на Красной площади в честь взятия Казани. ",
+              "value": 300
+            },
+            {
+              "answerImage": null,
+              "answerText": "Растрелли",
+              "catValue": null,
+              "id": "question-3ff93ccf-cb2e-426c-8cf2-ab64f8759f1a",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Архитектор, построивший Зимний дворец.",
+              "value": 600
+            },
+            {
+              "answerImage": null,
+              "answerText": "Барокко",
+              "catValue": null,
+              "id": "question-6e5a6655-9501-472c-a3d9-bdb3dbe1c3de",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Стиль, в котором построен Смольный собор в Петербурге.",
+              "value": 900
+            },
+            {
+              "answerImage": null,
+              "answerText": "Доменико Трезини",
+              "catValue": null,
+              "id": "question-b6d1a727-88c6-4037-b2f5-73ccf6989e91",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Архитектор Петропавловского собора. ",
+              "value": 1200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Московское (или Раннемосковское) зодчество / Итальянский ренессанс (Аристотель Фиораванти)",
+              "catValue": null,
+              "id": "question-e3728178-cd63-4c8a-a049-a6532b737439",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Как назывался архитектурный стиль в Москве в конце XV века (при Иване III)? ",
+              "value": 1500
+            }
+          ]
+        },
+        {
+          "id": "theme-be61a4db-7071-4f37-a3ec-10488e5a4eea",
+          "name": "Деньги и торговля",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Копейка",
+              "catValue": null,
+              "id": "question-04c4c6f3-b162-4615-91a3-5f38900af6a3",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Денежная единица, введенная при Елене Глинской.",
+              "value": 300
+            },
+            {
+              "answerImage": null,
+              "answerText": "Строгановы",
+              "catValue": null,
+              "id": "question-9b40cde5-1ed1-43b4-a262-f229a7938790",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Соль и пушнина — основа богатства этой династии купцов.",
+              "value": 600
+            },
+            {
+              "answerImage": null,
+              "answerText": "при Екатерине II (1769)",
+              "catValue": null,
+              "id": "question-660b44ba-6a75-4788-ae12-fd3f74659b56",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Когда в России появились первые бумажные деньги (ассигнации)? ",
+              "value": 900
+            },
+            {
+              "answerImage": null,
+              "answerText": "Афанасий Никитин",
+              "catValue": null,
+              "id": "question-3adaf2b7-fe35-4aba-b818-7abc77405d6e",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Русский купец, написавший «Хождение за три моря». ",
+              "value": 1200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Северная война (1701 год) — Петр I",
+              "catValue": null,
+              "id": "question-8046b01e-51e1-4187-92b9-1f08d7cf7da6",
+              "isCatInBag": false,
+              "media": null,
+              "text": "В честь какого события отчеканен первый российский золотой червонец?",
+              "value": 1500
+            }
+          ]
+        },
+        {
+          "id": "theme-01625d3f-ed8b-4b82-8aa7-45c431dc1a28",
+          "name": "Мифы и легенды",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Боян",
+              "catValue": null,
+              "id": "question-a6abdec1-7f36-4cf3-9a6b-3ebf0c56fe51",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Легендарный певец, герой былин, который играл на гуслях.",
+              "value": 300
+            },
+            {
+              "answerImage": null,
+              "answerText": "Светлояр",
+              "catValue": null,
+              "id": "question-60d3a8b6-511d-44dd-b3de-7ecc004c4068",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Озеро, в котором, по легенде, утонул Китеж-град.",
+              "value": 600
+            },
+            {
+              "answerImage": null,
+              "answerText": "Владимир Красно Солнышко (Святой Владимир)",
+              "catValue": 1500,
+              "id": "question-9651098d-f0cb-4657-99df-b934ffec409d",
+              "isCatInBag": true,
+              "media": null,
+              "text": "Князь, которого народ прозвал «Красное Солнышко».",
+              "value": 900
+            },
+            {
+              "answerImage": null,
+              "answerText": "Москва",
+              "catValue": null,
+              "id": "question-f36d3009-397f-4abe-a424-f2d3a065323e",
+              "isCatInBag": false,
+              "media": null,
+              "text": "По легенде, этот город построен на костях (на месте убитого змея).",
+              "value": 1200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Волхвы",
+              "catValue": null,
+              "id": "question-e06f2234-27e7-4286-a576-38f61d1669f5",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Кто предсказал гибель князя Олега от коня? ",
+              "value": 1500
+            }
+          ]
+        },
+        {
+          "id": "theme-6ae95394-b3a6-45aa-923e-3eda5ec17fb5",
+          "name": "Внешняя политика",
+          "questions": [
+            {
+              "answerImage": null,
+              "answerText": "Иван Грозный",
+              "catValue": null,
+              "id": "question-b989b6e8-9a53-46a1-a043-7c92f19b722f",
+              "isCatInBag": false,
+              "media": null,
+              "text": "При ком Россия присоединила Казанское ханство? ",
+              "value": 300
+            },
+            {
+              "answerImage": null,
+              "answerText": "Против Ливонского ордена",
+              "catValue": null,
+              "id": "question-7c30e2d0-7f8b-4818-b032-5ffbc5962c37",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Против кого была направлена Ливонская война? ",
+              "value": 600
+            },
+            {
+              "answerImage": null,
+              "answerText": "1686",
+              "catValue": null,
+              "id": "question-3f97c5b5-0079-4cba-b4a5-5670f4a96985",
+              "isCatInBag": false,
+              "media": null,
+              "text": "«Вечный мир» с Польшей заключен в этом году.",
+              "value": 900
+            },
+            {
+              "answerImage": null,
+              "answerText": "Алексей Орлов",
+              "catValue": null,
+              "id": "question-10399f96-3e46-4357-b328-04d58ae0b9a9",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Кто командовал русским флотом в Чесменском сражении? ",
+              "value": 1200
+            },
+            {
+              "answerImage": null,
+              "answerText": "Сан-Стефанский мирный договор",
+              "catValue": null,
+              "id": "question-a0173620-c547-43a5-a448-28981e1559f0",
+              "isCatInBag": false,
+              "media": null,
+              "text": "Этот договор 1878 года освободил Болгарию от османского ига.",
+              "value": 1500
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 1,
+  "tags": [
+    "people-society",
+    "art-culture",
+    "nature-universe"
+  ],
+  "updatedAt": "2026-08-20T08:39:09.576Z"
+}

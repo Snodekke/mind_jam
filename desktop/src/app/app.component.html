@@ -1,0 +1,603 @@
+<div class="game-shell" [class]="themeClass" [class.offline-game-active]="view === 'offline-game'">
+  <div class="pixel-grid" aria-hidden="true"></div>
+  <div class="glow glow-left" aria-hidden="true"></div>
+  <div class="glow glow-right" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <section class="player-card" aria-label="Player profile">
+      <div class="avatar-preview">
+        @if (selectedAvatar; as avatar) { <img [src]="avatar.preview" [alt]="avatar.name + ' avatar'" /> }
+      </div>
+      <div class="player-copy">
+        <span class="player-label">{{ tr("PLAYER", "ИГРОК") }}</span>
+        @if (isEditingNickname) {
+          <form class="nickname-editor" (submit)="saveNickname(); $event.preventDefault()">
+            <input type="text" maxlength="24" [value]="nicknameDraft" (input)="nicknameDraft = $any($event.target).value" [attr.aria-label]="tr('New nickname', 'Новый ник')" autofocus />
+            <button type="submit" [disabled]="isSavingNickname" [attr.aria-label]="tr('Save nickname', 'Сохранить ник')">✓</button>
+            <button type="button" (click)="cancelNicknameEdit()" [attr.aria-label]="tr('Cancel', 'Отмена')">×</button>
+          </form>
+          @if (nicknameFeedback) { <small class="nickname-feedback">{{ nicknameFeedback }}</small> }
+        } @else {
+          <button class="player-name" type="button" (click)="beginNicknameEdit()" [attr.title]="tr('Change nickname', 'Изменить ник')">{{ nickname }}</button>
+        }
+      </div>
+    </section>
+
+    <button class="settings-button" [class.settings-button-active]="view === 'settings'" type="button"
+      [attr.aria-label]="t('settings')" [attr.title]="t('settings')" (click)="openSettings()">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.9 7.9 0 0 0 .1-1 7.9 7.9 0 0 0-.1-1l2.1-1.6-2-3.4-2.5 1a8 8 0 0 0-1.7-1L15 3.4h-4L10.6 6a8 8 0 0 0-1.7 1L6.5 6l-2 3.4L6.6 11a7.9 7.9 0 0 0-.1 1 7.9 7.9 0 0 0 .1 1l-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 1.7 1l.4 2.6h4l.4-2.6a8 8 0 0 0 1.7-1l2.5 1 2-3.4L19.4 13ZM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" /></svg>
+    </button>
+  </header>
+
+  @if (view === "menu") {
+    <main class="menu-stage">
+      <img class="brand-logo" src="assets/branding/mind-jam-logo.png" alt="Mind Jam" draggable="false" />
+      <nav class="menu-list" aria-label="Main menu">
+        @for (item of menuItems; track item.action) {
+          <button class="menu-button" [class.menu-button-primary]="item.tone === 'primary'" type="button" (click)="chooseAction(item.action)">
+            <span class="button-marker" aria-hidden="true"></span><span>{{ menuLabel(item.action) }}</span><span class="button-arrow" aria-hidden="true">›</span>
+          </button>
+        }
+        <button class="menu-button menu-button-exit" type="button" (click)="quitGame()">
+          <span class="button-marker" aria-hidden="true"></span><span>{{ tr("Exit game", "Выход из игры") }}</span><span class="button-arrow" aria-hidden="true">×</span>
+        </button>
+      </nav>
+      <p class="feedback" [class.feedback-visible]="feedback" aria-live="polite">{{ feedback }}</p>
+    </main>
+  } @else if (view === "offline-mode") {
+    <main class="offline-mode-menu">
+      <header class="offline-header">
+        <button class="back-button" type="button" (click)="closeSubmenu()"><span aria-hidden="true">‹</span>{{ t("back") }}</button>
+        <div><span class="eyebrow">{{ t("chooseOfflineMode") }}</span><h1>{{ t("offlineTitle") }}</h1></div>
+      </header>
+      <section class="offline-mode-grid">
+        <button class="offline-mode-card bots-mode-card" type="button" (click)="openBotsSetup()">
+          <span class="offline-mode-icon" aria-hidden="true">♟</span>
+          <span><strong>{{ t("playWithBots") }}</strong><small>{{ tr("Configure computer opponents and choose a pack", "Настройте компьютерных соперников и выберите пак") }}</small></span>
+          <span class="button-arrow" aria-hidden="true">›</span>
+        </button>
+        <button class="offline-mode-card hotseat-mode-card" type="button" (click)="openHotseatSetup()">
+          <span class="offline-mode-icon" aria-hidden="true">⌁</span>
+          <span><strong>{{ t("hotseat") }}</strong><small>{{ tr("The host controls the game for everyone on one device", "Ведущий управляет игрой всех участников на одном устройстве") }}</small></span>
+          <span class="button-arrow" aria-hidden="true">›</span>
+        </button>
+      </section>
+    </main>
+  } @else if (view === "offline-bots-setup") {
+    <main class="offline-setup-menu">
+      <header class="offline-header">
+        <button class="back-button" type="button" (click)="backToOfflineModes()"><span aria-hidden="true">‹</span>{{ t("back") }}</button>
+        <div><span class="eyebrow">{{ offlineRoomMode === "hotseat" ? t("hotseat") : t("playWithBots") }}</span><h1>{{ offlineRoomMode === "hotseat" ? tr("Hotseat room", "Комната на одном устройстве") : t("botSetup") }}</h1></div>
+      </header>
+
+      <section class="offline-setup-panel">
+        <div class="bot-count-setting">
+          <span><small>{{ offlineRoomMode === "hotseat" ? tr("Number of participants", "Количество участников") : t("botCount") }}</small><strong>{{ offlineBots.length }}</strong></span>
+          <div class="bot-count-controls">
+            <button type="button" [disabled]="offlineBots.length <= 2" (click)="setOfflineBotCount((offlineBots.length - 1).toString())">−</button>
+            <input type="range" min="2" max="12" step="1" [value]="offlineBots.length" (input)="setOfflineBotCount($any($event.target).value)" />
+            <button type="button" [disabled]="offlineBots.length >= 12" (click)="setOfflineBotCount((offlineBots.length + 1).toString())">＋</button>
+          </div>
+        </div>
+
+        <div class="offline-team-setting">
+          <label><input type="checkbox" [checked]="offlineTeamMode" (change)="setOfflineTeamMode($any($event.target).checked)" /><span>{{ tr("Team game", "Командная игра") }}</span></label>
+          @if (offlineTeamMode) {
+            <label class="pack-field"><span>{{ tr("Number of teams", "Количество команд") }}</span><select [value]="offlineTeamCount" (change)="setOfflineTeamCount($any($event.target).value)">@for (team of [2, 3, 4]; track team) { <option [value]="team">{{ team }}</option> }</select></label>
+            <div class="offline-team-name-grid">
+              @for (team of offlineTeams; track team.number) {
+                <label class="pack-field"><span>{{ tr("Team name", "Название команды") }} {{ team.number }}</span><input type="text" maxlength="32" [value]="offlineTeamNames[team.number - 1]" [placeholder]="team.name" (input)="setOfflineTeamName(team.number, $any($event.target).value)" /></label>
+                @if (offlineRoomMode === "hotseat") { <label class="binding-setting compact-binding"><span>{{ tr("Answer key", "Клавиша ответа") }}</span><button type="button" (keydown)="setOfflineAnswerKey('team-' + team.number, $event)" [attr.title]="t('keyHint')">{{ keyLabel(offlineAnswerKeys.get('team-' + team.number) ?? '') }}</button></label> }
+              }
+            </div>
+            <small>{{ tr("Each team table must have at least one participant.", "За каждым командным столом должен быть хотя бы один участник.") }}</small>
+          }
+        </div>
+
+        <div class="offline-bot-grid">
+          @for (bot of offlineBots; track bot.id; let botIndex = $index) {
+            <article class="offline-bot-card">
+              @if (avatarById(bot.avatarId); as avatar) {
+                <img [src]="avatar.preview" [alt]="avatar.name" />
+              }
+              <span class="bot-card-number">{{ botIndex + 1 }}</span>
+              <label class="pack-field"><span>{{ offlineRoomMode === "hotseat" ? tr("Participant name", "Имя участника") : t("botName") }}</span><input type="text" maxlength="24" [value]="bot.name" (input)="bot.name = $any($event.target).value" /></label>
+              <label class="pack-field"><span>{{ t("botAvatar") }}</span><select [value]="bot.avatarId" (change)="setOfflineBotAvatar(bot, $any($event.target).value)">@for (avatar of availableBotAvatars; track avatar.id) { <option [value]="avatar.id">{{ avatar.name }}</option> }</select></label>
+              @if (offlineTeamMode) { <label class="pack-field"><span>{{ tr("Team", "Команда") }}</span><select [value]="bot.team" (change)="setOfflineBotTeam(bot, $any($event.target).value)">@for (team of offlineTeams; track team.number) { <option [value]="team.number">{{ team.name }}</option> }</select></label> }
+              @if (offlineRoomMode === "hotseat" && !offlineTeamMode) { <label class="binding-setting compact-binding"><span>{{ tr("Answer key", "Клавиша ответа") }}</span><button type="button" (keydown)="setOfflineAnswerKey(bot.id, $event)" [attr.title]="t('keyHint')">{{ keyLabel(offlineAnswerKeys.get(bot.id) ?? '') }}</button></label> }
+              @if (offlineRoomMode === "bots") { <button class="take-bot-seat-button" [class.take-bot-seat-button-active]="offlineHumanBotId === bot.id" type="button" (click)="occupyOfflineBotSeat(bot.id)">{{ offlineHumanBotId === bot.id ? tr("LEAVE SEAT", "ОСВОБОДИТЬ МЕСТО") : tr("TAKE THIS SEAT", "ЗАНЯТЬ МЕСТО") }}</button> }
+            </article>
+          }
+        </div>
+
+        <div class="offline-pack-choice">
+          <label class="pack-field"><span>{{ t("choosePack") }}</span>
+            <select [value]="selectedOfflinePackFile" (change)="selectedOfflinePackFile = $any($event.target).value">
+              @if (offlinePackSummaries.length === 0) { <option value="">{{ t("noPlayablePacks") }}</option> }
+              @for (pack of offlinePackSummaries; track pack.fileName) { <option [value]="pack.fileName">{{ pack.name }} · {{ packTypeLabel(pack.gameType) }} · {{ packTagsLabel(pack.tags) }} · {{ pack.roundCount }} {{ tr("rounds", "раундов") }}</option> }
+            </select>
+          </label>
+          @if (selectedOfflinePackSummary; as selectedPack) {
+            <div class="offline-pack-details">
+              <span class="offline-pack-type">{{ packTypeLabel(selectedPack.gameType) }}</span>
+              <span class="pack-tag-list">@if (selectedPack.tags.length === 0) { <small class="pack-no-tags">{{ tr("No tags", "Без тегов") }}</small> } @for (tag of selectedPack.tags; track tag) { <small class="pack-tag">{{ packTagLabel(tag) }}</small> }</span>
+            </div>
+          }
+          <button class="offline-start-button" type="button" [disabled]="!selectedOfflinePackFile" (click)="startOfflineBotsGame()">{{ t("startGame") }} <span aria-hidden="true">›</span></button>
+        </div>
+        @if (offlineFeedback) { <p class="pack-feedback offline-feedback" aria-live="polite">{{ offlineFeedback }}</p> }
+      </section>
+    </main>
+  } @else if (view === "offline-game" && offlineGamePack; as gamePack) {
+    <main class="offline-game-scene" [class.final-elimination-transition]="offlineGamePhase === 'final-elimination'">
+      <div class="game-room-actions">
+        @if (offlineRoomMode === "hotseat") {
+          <button class="game-key-settings-button" type="button" (click)="toggleOfflineKeySettings()" [attr.aria-label]="tr('Answer key settings', 'Настройка клавиш ответа')" [attr.title]="tr('Answer key settings', 'Настройка клавиш ответа')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Zm1 3v2h2V9H5Zm4 0v2h2V9H9Zm4 0v2h2V9h-2Zm4 0v2h2V9h-2ZM5 13v2h2v-2H5Zm4 0v2h6v-2H9Zm8 0v2h2v-2h-2Z" /></svg></button>
+        }
+        @if (!offlineBotHostActive) {
+          <button class="game-back-state-button" type="button" [disabled]="!canRewindOfflineGame" (click)="rewindOfflineGame()" [attr.aria-label]="tr('Previous game screen', 'Предыдущее состояние игрового экрана')" [attr.title]="tr('Back to question selection or replay the previous question', 'Назад к выбору вопроса или повтор предыдущего вопроса')"><span aria-hidden="true">↶</span></button>
+          <button class="game-pause-button" type="button" [disabled]="!offlineGameStarted" (click)="toggleOfflinePause()" [attr.aria-label]="offlineGamePaused ? tr('Resume game', 'Продолжить игру') : tr('Pause game', 'Поставить игру на паузу')" [attr.title]="offlineGamePaused ? tr('Resume game', 'Продолжить игру') : tr('Pause game', 'Поставить игру на паузу')"><span aria-hidden="true">{{ offlineGamePaused ? "▶" : "Ⅱ" }}</span></button>
+          <button class="game-skip-button" type="button" [disabled]="!canSkipOfflineQuestion" (click)="skipOfflineQuestion()" [attr.aria-label]="tr('Skip question', 'Пропустить вопрос')" [attr.title]="tr('Skip question', 'Пропустить вопрос')"><span aria-hidden="true">↷</span><b>{{ tr("SKIP QUESTION", "ПРОПУСТИТЬ ВОПРОС") }}</b></button>
+          <button class="game-skip-button game-skip-round-button" type="button" [disabled]="!canSkipOfflineRound" (click)="skipOfflineRound()" [attr.aria-label]="tr('Skip round', 'Пропустить раунд')" [attr.title]="tr('Skip round', 'Пропустить раунд')"><span aria-hidden="true">≫</span><b>{{ tr("SKIP ROUND", "ПРОПУСТИТЬ РАУНД") }}</b></button>
+        }
+        <button class="game-settings-button" type="button" (click)="openSettings()" [attr.aria-label]="t('settings')" [attr.title]="t('settings')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.9 7.9 0 0 0 .1-1 7.9 7.9 0 0 0-.1-1l2.1-1.6-2-3.4-2.5 1a8 8 0 0 0-1.7-1L15 3.4h-4L10.6 6a8 8 0 0 0-1.7 1L6.5 6l-2 3.4L6.6 11a7.9 7.9 0 0 0-.1 1 7.9 7.9 0 0 0 .1 1l-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 1.7 1l.4 2.6h4l.4-2.6a8 8 0 0 0 1.7-1l2.5 1 2-3.4L19.4 13ZM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" /></svg>
+        </button>
+        <button class="game-exit-button" type="button" (click)="exitOfflineGame()" [attr.aria-label]="t('exitGame')" [attr.title]="t('exitGame')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5.8A1.8 1.8 0 0 0 4 5.8v12.4A1.8 1.8 0 0 0 5.8 20H10v-2H6V6h4V4Zm4.7 3.3-1.4 1.4 2.3 2.3H9v2h6.6l-2.3 2.3 1.4 1.4 4.7-4.7-4.7-4.7Z" /></svg>
+        </button>
+      </div>
+
+      <div class="room-chat-controls">
+        @if (offlineChatOpen) {
+          <form class="room-chat-composer" (submit)="sendOfflineRoomMessage(); $event.preventDefault()">
+            <input type="text" maxlength="240" [value]="offlineChatDraft" (input)="offlineChatDraft = $any($event.target).value" [placeholder]="tr('Write a message…', 'Напишите сообщение…')" autofocus />
+            <button type="submit" [disabled]="!offlineChatDraft.trim()" [attr.aria-label]="tr('Send message', 'Отправить сообщение')">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.4 20.4 17.8-8a.45.45 0 0 0 0-.82l-17.8-8a.45.45 0 0 0-.62.5L4.3 10.7l9.1 1.3-9.1 1.3-1.52 6.6a.45.45 0 0 0 .62.5Z" /></svg>
+            </button>
+          </form>
+        }
+        <button class="room-chat-toggle" [class.room-chat-toggle-active]="offlineChatOpen" type="button" (click)="toggleOfflineChat()" [attr.aria-label]="tr('Room message', 'Сообщение в комнату')" [attr.title]="tr('Room message', 'Сообщение в комнату')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5.2 3.5A.5.5 0 0 1 3 20.1V6a2 2 0 0 1 2-2Zm2 5h10V7H7v2Zm0 4h7v-2H7v2Z" /></svg>
+        </button>
+        @if (offlineHumanBot; as human) {
+          <button class="participant-action-button" [class.participant-action-button-pressed]="offlineActionPressedIds.has(human.id)" [class.participant-action-button-false-start]="offlineFalseStartIds.has(human.id)" type="button" [disabled]="!canPressOfflineHumanAction" (click)="triggerOfflineAction(human.id)" [attr.aria-label]="tr('Answer', 'Ответить')" [attr.title]="offlineFalseStartIds.has(human.id) ? tr('Too early — wait two seconds', 'Слишком рано — подождите две секунды') : tr('Answer', 'Ответить')"><span aria-hidden="true">!</span></button>
+        }
+      </div>
+
+      <section class="host-station" aria-label="Host">
+        @if (!offlineGameStarted) {
+          <button class="host-start-button" type="button" [disabled]="!canStartOfflineGame" (click)="startOfflineGame()" [attr.title]="canStartOfflineGame ? null : tr('At least two participants and a Topic Clash pack are required', 'Нужны минимум два участника и пак «Битвы тем»')">{{ tr("START GAME", "НАЧАТЬ ИГРУ") }}</button>
+        }
+        @if (offlineHostAvatar; as avatar) {
+          <div class="arena-avatar host-arena-avatar voice-reactive-avatar" [style.background-image]="'url(' + arenaSpriteSheet(avatar, offlineHostAnimation) + ')'" [style.--sprite-x]="arenaSpritePosition(avatar, offlineHostAnimation)" [style.--cycle-duration]="arenaAnimationDuration(avatar, offlineHostAnimation)" [style.--iteration-count]="arenaAnimationIterations(avatar, offlineHostAnimation)" [style.--voice-aura-blur]="voiceAuraBlur('host')" [style.--voice-aura-opacity]="voiceAuraOpacity('host')" role="img" [attr.aria-label]="avatar.name"></div>
+        }
+        @if (offlineRoomMessage('host'); as message) { <div class="room-message-bubble host-room-message">{{ message }}</div> }
+        @if (offlineHostAnswerVisible) { <aside class="host-answer-card" aria-label="Host-only correct answer"><small>🔒 {{ tr("HOST ONLY · CORRECT ANSWER", "ТОЛЬКО ВЕДУЩЕМУ · ПРАВИЛЬНЫЙ ОТВЕТ") }}</small><strong>{{ offlineSelectedQuestion?.answerText }}</strong></aside> }
+        @if (offlineQuestionTextParked) { <div class="host-question-text">{{ offlineSelectedQuestion?.text }}</div> }
+        <div class="host-podium">
+          <div class="podium-top"></div>
+          <div class="podium-screen"><small>{{ t("host") }}</small><strong>{{ offlineHostName }}</strong></div>
+          <div class="podium-base"></div>
+        </div>
+      </section>
+
+      <section class="pack-stage-screen">
+        @if (offlineGamePhase === "lobby") {
+          <span class="screen-kicker">MIND JAM · {{ packTypeLabel(gamePack.gameType) }}</span>
+          <h1>{{ gamePack.name }}</h1>
+          <span class="screen-ready">{{ tr("READY TO START", "ГОТОВО К НАЧАЛУ") }}</span>
+        } @else if (offlineRound; as round) {
+          @if (offlineGamePhase === "round-title") {
+            <span class="screen-kicker">{{ tr("ROUND", "РАУНД") }} {{ offlineRoundIndex + 1 }}</span>
+            <h1>{{ round.name }}</h1>
+          } @else if (offlineGamePhase === "themes") {
+            <span class="screen-kicker">{{ round.name }} · {{ tr("THEMES", "ТЕМЫ") }}</span>
+            <div class="offline-theme-intro">@for (theme of round.themes; track theme.id; let themeIndex = $index) { <span><b>{{ themeIndex + 1 }}</b>{{ theme.name }}</span> }</div>
+          } @else if (offlineGamePhase === "chooser" || offlineGamePhase === "board") {
+            <div class="topic-table-wrap">
+              <table class="topic-clash-table"><caption>{{ round.name }}</caption><tbody>@for (theme of round.themes; track theme.id) { <tr><th scope="row">{{ theme.name }}</th>@for (question of theme.questions; track question.id) { <td>@if (!isOfflineQuestionAnswered(question)) { <button type="button" [disabled]="offlineGamePhase !== 'board' || (offlineBotHostActive && offlineChooserBotId !== offlineHumanBotId)" (click)="selectOfflineQuestion(question)">{{ question.value ?? "—" }}</button> }</td> }</tr> }</tbody></table>
+            </div>
+            @if (offlineGamePhase === "chooser") {
+              <section class="chooser-panel"><span class="eyebrow">{{ tr("FIRST MOVE", "ПЕРВЫЙ ХОД") }}</span><h2>{{ tr("Who chooses the first question?", "Кто выбирает первый вопрос?") }}</h2>@if (offlineBotHostActive) { <p>{{ tr("The bot host is choosing a player…", "Бот-ведущий выбирает участника…") }}</p> } @else { <div>@for (bot of offlineBots; track bot.id) { <button type="button" (click)="chooseOfflineChooser(bot.id)">{{ bot.name }}</button> }<button class="random-chooser" type="button" (click)="chooseRandomOfflineChooser()">⚄ {{ tr("RANDOM PLAYER", "СЛУЧАЙНЫЙ ИГРОК") }}</button></div> }</section>
+            } @else {
+              <div class="question-selection-status"><strong>{{ offlineChooserBot?.name }}</strong><span>{{ tr("Choose a theme and value", "Выберите тему и номинал") }}</span></div>
+            }
+          } @else if (offlineGamePhase === "question" && offlineSelectedQuestion; as question) {
+            <article class="offline-question-view">
+              @if (offlineQuestionStage === "cat-announcement") {
+                <div class="cat-announcement"><span aria-hidden="true">🐈</span><h2>{{ tr("CAT IN THE BAG", "КОТ В МЕШКЕ") }}</h2></div>
+              } @else if (offlineQuestionStage === "cat-recipient") {
+                <section class="cat-recipient-panel"><span class="eyebrow">{{ tr("CAT IN THE BAG", "КОТ В МЕШКЕ") }}</span><h2>{{ tr("Who gets the question?", "Кому отдать вопрос?") }}</h2><div>@for (bot of offlineBots; track bot.id) { <button type="button" [disabled]="bot.id === offlineChooserBotId" (click)="assignOfflineCatRecipient(bot.id)">{{ bot.name }}</button> }</div></section>
+              } @else if (offlineQuestionStage === "cat-transfer") {
+                <div class="cat-transfer"><span>{{ offlineChooserBot?.name }}</span><b>➜</b><span>{{ offlineCatRecipientBot?.name }}</span><p>{{ tr("gave the Cat in the Bag question", "передаёт вопрос «Кот в мешке»") }}</p></div>
+              } @else {
+                @if (offlineTypedQuestionText && !offlineQuestionTextParked && offlineQuestionStage !== "answer-reveal") { <p [style.font-size]="offlineQuestionTextSize">{{ offlineTypedQuestionText }}@if (offlineQuestionStage === "typing") { <span class="typing-caret" aria-hidden="true"></span> }</p> }
+                @if (offlineQuestionMediaVisible && question.media; as media) {
+                  <div class="question-media-stage">
+                    @if (media.type === "image") { <img [src]="offlineQuestionMediaUrl" [alt]="media.name" /> }
+                    @else if (media.type === "video") { <video [src]="offlineQuestionMediaUrl" autoplay playsinline disablepictureinpicture disableremoteplayback tabindex="-1" (loadeddata)="onOfflineMediaReady($event)" (ended)="onOfflineMediaEnded()" (error)="onOfflineMediaFailed()"></video> }
+                    @else { <span class="audio-clef" aria-hidden="true">𝄞</span><audio [src]="offlineQuestionMediaUrl" autoplay disableremoteplayback tabindex="-1" (loadeddata)="onOfflineMediaReady($event)" (ended)="onOfflineMediaEnded()" (error)="onOfflineMediaFailed()"></audio> }
+                  </div>
+                }
+                @if (offlineQuestionStage === "answer-reveal") {
+                  <section class="correct-answer-reveal"><small>{{ tr("CORRECT ANSWER", "ПРАВИЛЬНЫЙ ОТВЕТ") }}</small><strong>{{ question.answerText }}</strong>@if (question.answerImage; as answerImage) { <img [src]="answerImage.dataUrl" [alt]="question.answerText" /> }</section>
+                } @else if (offlineQuestionStage === "answering") {
+                  <div class="answer-timer-copy"><span>{{ offlineRoomMode === "hotseat" ? tr("Participants answer with their assigned keys", "Участники отвечают назначенными клавишами") : tr("Press the action key to answer", "Нажмите кнопку действия, чтобы ответить") }}</span></div>
+                } @else if (offlineQuestionStage === "judging" && offlineResponderBot; as responder) {
+                  <section class="judge-panel"><span>{{ tr("Answers", "Отвечает") }}</span><h2>{{ responder.name }}</h2>@if (offlineBotHostActive) { <p>{{ tr("The bot host is waiting for the answer in chat", "Бот-ведущий ждёт ответ в чате") }}</p> } @else { <div><button class="answer-wrong" type="button" (click)="judgeOfflineAnswer(false)">× {{ tr("WRONG", "НЕВЕРНО") }}</button><button class="answer-correct" type="button" (click)="judgeOfflineAnswer(true)">✓ {{ tr("CORRECT", "ВЕРНО") }}</button></div> }</section>
+                }
+              }
+              <strong class="question-value-badge">{{ offlineQuestionValue }}</strong>
+            </article>
+          } @else if (offlineGamePhase === "round-complete") {
+            <span class="screen-kicker">{{ tr("ROUND COMPLETE", "РАУНД ЗАВЕРШЁН") }}</span><h1>{{ round.name }}</h1>
+          } @else if (offlineGamePhase === "final-elimination") {
+            <span class="screen-kicker">{{ tr("FINAL", "ФИНАЛ") }}</span><h1>{{ offlineTeamMode ? tr("Only teams with a positive score remain", "Остаются команды с положительным счётом") : tr("Only players with a positive score remain", "Остаются участники с положительным счётом") }}</h1>
+          } @else if (offlineGamePhase === "final-themes") {
+            <span class="screen-kicker">{{ tr("FINAL THEMES", "ТЕМЫ ФИНАЛА") }}</span><h2 class="final-turn-title">{{ offlineFinalTurnBot ? offlineContestantName(offlineFinalTurnBot) : "" }} · {{ tr("remove one theme", "уберите одну тему") }}</h2>@if (offlineFinalThemes.length > 1) { <div class="final-theme-grid">@for (theme of offlineFinalThemes; track theme.id) { <button type="button" (click)="removeOfflineFinalTheme(theme.id)">{{ theme.name }}</button> }</div> }
+          } @else if (offlineGamePhase === "final-wager") {
+            <span class="screen-kicker">{{ offlineFinalTheme?.name }} · {{ tr("WAGERS", "СТАВКИ") }}</span><div class="final-entry-grid">@for (bot of offlineFinalists; track bot.id) { <section [class.final-entry-confirmed]="offlineFinalWagers.has(bot.id)"><strong>{{ offlineContestantName(bot) }}</strong><small>{{ tr("Maximum", "Максимум") }}: {{ bot.score }}</small><input type="number" min="0" [max]="bot.score" [value]="offlineFinalWagerDrafts.get(bot.id) ?? 0" [disabled]="offlineFinalWagers.has(bot.id)" (input)="setOfflineFinalWagerDraft(bot, $any($event.target).value)" /><button type="button" [disabled]="offlineFinalWagers.has(bot.id)" (click)="confirmOfflineFinalWager(bot)">{{ offlineFinalWagers.has(bot.id) ? "✓" : tr("CONFIRM", "УТВЕРДИТЬ") }}</button></section> }</div>
+          } @else if (offlineGamePhase === "final-question" && offlineSelectedQuestion; as finalQuestion) {
+            <article class="offline-question-view final-question-view">
+              @if (offlineTypedQuestionText && !offlineQuestionTextParked) { <p [style.font-size]="offlineQuestionTextSize">{{ offlineTypedQuestionText }}@if (offlineQuestionStage === "typing") { <span class="typing-caret" aria-hidden="true"></span> }</p> }
+              @if (offlineQuestionMediaVisible && finalQuestion.media; as media) { <div class="question-media-stage">@if (media.type === "image") { <img [src]="offlineQuestionMediaUrl" [alt]="media.name" /> } @else if (media.type === "video") { <video [src]="offlineQuestionMediaUrl" autoplay playsinline disablepictureinpicture disableremoteplayback tabindex="-1" (loadeddata)="onOfflineMediaReady($event)" (ended)="onOfflineMediaEnded()" (error)="onOfflineMediaFailed()"></video> } @else { <span class="audio-clef" aria-hidden="true">𝄞</span><audio [src]="offlineQuestionMediaUrl" autoplay disableremoteplayback tabindex="-1" (loadeddata)="onOfflineMediaReady($event)" (ended)="onOfflineMediaEnded()" (error)="onOfflineMediaFailed()"></audio> }</div> }
+            </article>
+          } @else if (offlineGamePhase === "final-answers") {
+            <span class="screen-kicker">{{ offlineFinalTheme?.name }} · {{ offlineFinalAnswersVisible ? tr("CHECK ANSWERS", "ПРОВЕРКА ОТВЕТОВ") : tr("ANSWERS", "ОТВЕТЫ") }}</span>
+            @if (offlineQuestionStage === "answer-reveal" && offlineSelectedQuestion; as finalAnsweredQuestion) { <section class="correct-answer-reveal"><small>{{ tr("CORRECT ANSWER", "ПРАВИЛЬНЫЙ ОТВЕТ") }}</small><strong>{{ finalAnsweredQuestion.answerText }}</strong>@if (finalAnsweredQuestion.answerImage; as answerImage) { <img [src]="answerImage.dataUrl" [alt]="finalAnsweredQuestion.answerText" /> }</section> }
+            @else if (!offlineFinalAnswersVisible) { <div class="final-entry-grid final-answer-entry-grid">@for (bot of offlineFinalists; track bot.id) { <section [class.final-entry-confirmed]="offlineFinalAnswers.has(bot.id)"><strong>{{ offlineContestantName(bot) }}</strong><input type="password" maxlength="240" [value]="offlineFinalAnswerDrafts.get(bot.id) ?? ''" [disabled]="offlineFinalAnswers.has(bot.id)" (input)="setOfflineFinalAnswerDraft(bot.id, $any($event.target).value)" /><button type="button" [disabled]="offlineFinalAnswers.has(bot.id)" (click)="confirmOfflineFinalAnswer(bot.id)">{{ offlineFinalAnswers.has(bot.id) ? "✓" : tr("CONFIRM", "УТВЕРДИТЬ") }}</button></section> }</div> }
+            @else { <div class="final-judge-grid">@for (bot of offlineFinalists; track bot.id) { <section [class.final-judged-correct]="offlineFinalJudgements.get(bot.id) === true" [class.final-judged-wrong]="offlineFinalJudgements.get(bot.id) === false"><strong>{{ offlineContestantName(bot) }}</strong><p>{{ offlineFinalAnswer(bot.id) }}</p><div><button type="button" [disabled]="offlineFinalJudgements.has(bot.id)" (click)="judgeOfflineFinalAnswer(bot.id, false)">×</button><button type="button" [disabled]="offlineFinalJudgements.has(bot.id)" (click)="judgeOfflineFinalAnswer(bot.id, true)">✓</button></div></section> }</div> }
+          } @else if (offlineGamePhase === "winner") {
+            <span class="screen-kicker">MIND JAM · {{ tr("WINNER", "ПОБЕДИТЕЛЬ") }}</span>
+            @if (offlineTeamMode && offlineWinnerTeam; as winnerTeam) {
+              <h1>{{ winnerTeam.name }}</h1><div class="winner-team-members"><small>{{ tr("TEAM MEMBERS", "СОСТАВ КОМАНДЫ") }}</small>@for (member of winnerTeam.members; track member.id) { <span>{{ member.name }}</span> }</div>
+            } @else { <h1>{{ offlineWinnerBot ? tr("Congratulations to the winner ", "Поздравляем победителя ") + offlineWinnerBot.name : tr("No finalists", "Нет участников финала") }}</h1> }
+            <button class="winner-exit-button" type="button" (click)="exitOfflineGame()">{{ tr("EXIT ROOM", "ВЫЙТИ ИЗ КОМНАТЫ") }}</button>
+          }
+        }
+        @if (offlineGamePaused) { <div class="game-pause-overlay"><span aria-hidden="true">Ⅱ</span><h2>{{ tr("GAME PAUSED", "ИГРА НА ПАУЗЕ") }}</h2></div> }
+      </section>
+
+      @if (offlineTeamMode) {
+        <section class="team-stations" [style.--team-count]="offlineTeamCount" aria-label="Teams">
+          @for (team of offlineTeams; track team.number; let teamIndex = $index) {
+            <article class="team-station" [class.team-station-lower]="teamIndex % 2 === 1">
+              @if (offlineGamePhase === "final-answers" && offlineFinalAnswersVisible && offlineFinalistIds.includes(team.members[0]?.id ?? '')) { <div class="final-answer-bubble">{{ offlineFinalAnswer(team.members[0].id) }}</div> }
+              <div class="team-members" [style.--member-count]="team.members.length">
+                @for (bot of team.members; track bot.id) {
+                  <div class="team-member">
+                    @if (offlineRoomMessage(bot.id); as message) { <div class="room-message-bubble participant-room-message">{{ message }}</div> }
+                    @if (avatarById(bot.avatarId); as avatar) {
+                      <div class="arena-avatar bot-arena-avatar score-target voice-reactive-avatar" [class.final-eliminated]="isOfflineBotEliminated(bot)" [style.background-image]="'url(' + arenaSpriteSheet(avatar, offlineBotAnimation(bot.id)) + ')'" [style.--sprite-x]="arenaSpritePosition(avatar, offlineBotAnimation(bot.id))" [style.--cycle-duration]="arenaAnimationDuration(avatar, offlineBotAnimation(bot.id))" [style.--iteration-count]="offlineBotAnimationIterations(avatar, bot.id)" [style.--voice-aura-blur]="voiceAuraBlur(bot.id)" [style.--voice-aura-opacity]="voiceAuraOpacity(bot.id)" role="button" tabindex="0" [attr.aria-label]="tr('Change team score for ', 'Изменить счёт команды: ') + team.name" (click)="openTeamScoreEditor(team.number)" (keydown.enter)="openTeamScoreEditor(team.number)"></div>
+                    }
+                    <small class="team-member-name">{{ bot.name }}</small>
+                  </div>
+                }
+              </div>
+              <div class="bot-desk team-desk"><div class="desk-top"></div><button class="desk-screen" type="button" (click)="openTeamScoreEditor(team.number)"><strong>{{ team.name }}</strong><span>{{ team.score }}</span>@if (offlineRoomMode === "hotseat") { <small class="desk-answer-key">{{ keyLabel(offlineAnswerKeys.get('team-' + team.number) ?? '') }}</small> }@if (offlineFinalWagersVisible && offlineFinalistIds.includes(team.members[0]?.id ?? '')) { <small class="desk-wager">{{ tr("Wager", "Ставка") }}: {{ offlineFinalWager(team.members[0].id) }}</small> }</button><div class="desk-leg"></div></div>
+            </article>
+          }
+        </section>
+      } @else {
+        <section class="bot-stations" [style.--bot-count]="offlineBots.length" aria-label="Bots">
+          @for (bot of offlineBots; track bot.id; let botIndex = $index) {
+            <article class="bot-station" [class.bot-station-lower]="botIndex % 2 === 1" [class.bot-station-human]="offlineHumanBotId === bot.id">
+              @if (offlineRoomMessage(bot.id); as message) { <div class="room-message-bubble participant-room-message">{{ message }}</div> }
+              @if (offlineGamePhase === "final-answers" && offlineFinalAnswersVisible && offlineFinalistIds.includes(bot.id)) { <div class="final-answer-bubble">{{ offlineFinalAnswer(bot.id) }}</div> }
+              @if (avatarById(bot.avatarId); as avatar) {
+                <div class="arena-avatar bot-arena-avatar score-target voice-reactive-avatar" [class.final-eliminated]="isOfflineBotEliminated(bot)" [style.background-image]="'url(' + arenaSpriteSheet(avatar, offlineBotAnimation(bot.id)) + ')'" [style.--sprite-x]="arenaSpritePosition(avatar, offlineBotAnimation(bot.id))" [style.--cycle-duration]="arenaAnimationDuration(avatar, offlineBotAnimation(bot.id))" [style.--iteration-count]="offlineBotAnimationIterations(avatar, bot.id)" [style.--voice-aura-blur]="voiceAuraBlur(bot.id)" [style.--voice-aura-opacity]="voiceAuraOpacity(bot.id)" role="button" tabindex="0" [attr.aria-label]="tr('Change score for ', 'Изменить счёт: ') + bot.name" (click)="openScoreEditor(bot.id)" (keydown.enter)="openScoreEditor(bot.id)"></div>
+              }
+              <div class="bot-desk"><div class="desk-top"></div><button class="desk-screen" type="button" (click)="openScoreEditor(bot.id)"><strong>{{ bot.name }}</strong><span>{{ bot.score }}</span>@if (offlineRoomMode === "hotseat") { <small class="desk-answer-key">{{ keyLabel(offlineAnswerKeys.get(bot.id) ?? '') }}</small> }@if (offlineFinalWagersVisible && offlineFinalistIds.includes(bot.id)) { <small class="desk-wager">{{ tr("Wager", "Ставка") }}: {{ offlineFinalWager(bot.id) }}</small> }</button><div class="desk-leg"></div></div>
+            </article>
+          }
+        </section>
+      }
+
+      @if (offlineGamePhase === "board" && offlineRoomMode === "bots") { <footer class="game-timer-footer"><b>{{ offlineSelectionSeconds }}</b><span><i [style.width.%]="offlineSelectionSeconds * 10"></i></span></footer> }
+      @else if (offlineGamePhase === "question" && offlineQuestionStage === "answering") { <footer class="game-timer-footer"><b>{{ offlineAnswerSeconds }}</b><span><i [style.width.%]="offlineAnswerSeconds / 30 * 100"></i></span></footer> }
+      @else if ((offlineGamePhase === "final-wager" || (offlineGamePhase === "final-answers" && !offlineFinalAnswersVisible))) { <footer class="game-timer-footer"><b>{{ offlineFinalSeconds }}</b><span><i [style.width.%]="offlineFinalSeconds / 30 * 100"></i></span></footer> }
+
+      @if (scoreEditorTargetId) {
+        <div class="score-editor-backdrop" (click)="closeScoreEditor()">
+          <section class="score-editor" role="dialog" aria-modal="true" [attr.aria-label]="tr('Change score', 'Изменить счёт')" (click)="$event.stopPropagation()">
+            <span class="eyebrow">{{ tr("SCORE", "СЧЁТ") }}</span><h2>{{ scoreEditorTargetName }}</h2>
+            <input type="number" min="-999999" max="999999" step="10" [value]="scoreEditorValue" (input)="scoreEditorValue = $any($event.target).valueAsNumber" autofocus />
+            <div><button type="button" (click)="closeScoreEditor()">{{ tr("CANCEL", "ОТМЕНА") }}</button><button class="score-save-button" type="button" (click)="saveScore()">{{ tr("SAVE", "СОХРАНИТЬ") }}</button></div>
+          </section>
+        </div>
+      }
+      @if (offlineKeySettingsOpen) {
+        <div class="score-editor-backdrop" (click)="toggleOfflineKeySettings()">
+          <section class="score-editor hotseat-key-editor" role="dialog" aria-modal="true" [attr.aria-label]="tr('Answer key settings', 'Настройка клавиш ответа')" (click)="$event.stopPropagation()">
+            <span class="eyebrow">{{ tr("CONTROLS", "УПРАВЛЕНИЕ") }}</span><h2>{{ tr("Answer keys", "Клавиши ответа") }}</h2>
+            <div class="hotseat-key-list">@for (contestant of offlineHotseatContestants; track contestant.key) { <label class="binding-setting"><span>{{ contestant.label }}</span><button type="button" (keydown)="setOfflineAnswerKey(contestant.key, $event)" [attr.title]="t('keyHint')">{{ keyLabel(offlineAnswerKeys.get(contestant.key) ?? '') }}</button></label> }</div>
+            <div><button class="score-save-button" type="button" (click)="toggleOfflineKeySettings()">{{ tr("DONE", "ГОТОВО") }}</button></div>
+          </section>
+        </div>
+      }
+    </main>
+  } @else if (view === "avatars") {
+    <main class="avatar-menu">
+      <header class="avatar-menu-header">
+        <button class="back-button" type="button" (click)="closeSubmenu()"><span aria-hidden="true">‹</span>{{ t("back") }}</button>
+        <div><span class="eyebrow">{{ t("customization") }}</span><h1>{{ t("chooseAvatar") }}</h1></div>
+      </header>
+      <div class="avatar-menu-content">
+        <section class="avatar-stand" aria-label="Selected avatar animation preview">
+          <div class="stand-stars" aria-hidden="true">✦</div>
+          @if (selectedAvatar; as avatar) {
+            <div class="avatar-sprite" role="img" [attr.aria-label]="avatar.name + ' avatar, ' + currentAnimationLabel + ' animation'"
+              [attr.data-animation]="currentAnimationName" [style.background-image]="'url(' + currentSpriteSheet + ')'"
+              [style.--sprite-x]="currentSpritePositionX" [style.--cycle-duration]="currentCycleDuration" [style.--iteration-count]="currentIterationCount"></div>
+            <button class="stand-nameplate" type="button" (click)="cycleAnimation()">
+              <span class="status-dot"></span><span>{{ avatar.name }} · {{ currentAnimationLabel }}</span><span class="cycle-icon" aria-hidden="true">↻</span>
+            </button>
+          } @else { <span class="loading-label">LOADING AVATARS…</span> }
+          <div class="stand-platform" aria-hidden="true"></div>
+        </section>
+        <section class="avatar-picker" aria-label="Avatars">
+          <div class="picker-heading"><span>{{ tr("AVATARS", "АВАТАРЫ") }}</span><strong>{{ avatars.length }}</strong></div>
+          <div class="avatar-options">
+            @for (avatar of avatars; track avatar.id) {
+              <button class="avatar-option" [class.avatar-option-selected]="avatar.id === selectedAvatarId" type="button" (click)="selectAvatar(avatar)">
+                <span class="option-preview"><img [src]="avatar.preview" [alt]="avatar.name" /></span>
+                <span class="option-copy"><strong>{{ avatar.name }}</strong></span>
+                <span class="selection-mark" aria-hidden="true">{{ avatar.id === selectedAvatarId ? "✓" : "›" }}</span>
+              </button>
+            }
+          </div>
+          <p class="picker-tip">{{ t("avatarTip") }}</p>
+          <p class="feedback avatar-feedback" [class.feedback-visible]="feedback" aria-live="polite">{{ feedback }}</p>
+        </section>
+      </div>
+    </main>
+  } @else if (view === "themes") {
+    <main class="themes-menu">
+      <header class="avatar-menu-header themes-header">
+        <button class="back-button" type="button" (click)="closeSubmenu()"><span aria-hidden="true">‹</span>{{ t("back") }}</button>
+        <div><span class="eyebrow">{{ tr("APPEARANCE", "ОФОРМЛЕНИЕ") }}</span><h1>{{ tr("Choose a theme", "Выберите тему") }}</h1></div>
+      </header>
+      <section class="theme-shop-grid">
+        @for (theme of themes; track theme.id) {
+          <article class="theme-shop-card" [class.theme-shop-selected]="theme.id === selectedThemeId">
+            @if (theme.preview) { <img [src]="theme.preview" [alt]="theme.name[settings.language === 'ru' ? 1 : 0]" /> }
+            @else { <div class="standard-theme-preview" aria-hidden="true"><span>✦</span></div> }
+            <div class="theme-shop-copy"><span><strong>{{ theme.name[settings.language === "ru" ? 1 : 0] }}</strong><small>{{ theme.id === "school" ? tr("Summer campus, chalkboard and school desks", "Летняя школа, доска и школьные парты") : tr("Classic Mind Jam look", "Классическое оформление Mind Jam") }}</small></span></div>
+            <button type="button" [disabled]="theme.id === selectedThemeId" (click)="selectTheme(theme)">{{ theme.id === selectedThemeId ? tr("SELECTED", "ВЫБРАНО") : tr("SELECT", "ВЫБРАТЬ") }}</button>
+          </article>
+        }
+      </section>
+      <p class="feedback avatar-feedback" [class.feedback-visible]="feedback" aria-live="polite">{{ feedback }}</p>
+    </main>
+  } @else if (view === "settings") {
+    <main class="settings-menu">
+      <header class="settings-header">
+        <button class="back-button" type="button" (click)="closeSubmenu()"><span aria-hidden="true">‹</span>{{ t("back") }}</button>
+        <div><span class="eyebrow">{{ t("settingsSubtitle") }}</span><h1>{{ t("settingsTitle") }}</h1></div>
+      </header>
+
+      <div class="settings-content">
+        <section class="settings-panel">
+          <div class="section-heading"><span class="section-icon" aria-hidden="true">♫</span><span>{{ t("audio") }}</span></div>
+
+          <label class="range-setting"><span>{{ t("masterVolume") }}</span><output>{{ settings.masterVolume }}%</output>
+            <input type="range" min="0" max="100" [value]="settings.masterVolume" (input)="setVolume('masterVolume', $any($event.target).value)" />
+          </label>
+          <label class="range-setting"><span>{{ t("musicVolume") }}</span><output>{{ settings.musicVolume }}%</output>
+            <input type="range" min="0" max="100" [value]="settings.musicVolume" (input)="setVolume('musicVolume', $any($event.target).value)" />
+          </label>
+          <label class="range-setting"><span>{{ t("effectsVolume") }}</span><output>{{ settings.effectsVolume }}%</output>
+            <input type="range" min="0" max="100" [value]="settings.effectsVolume" (input)="setVolume('effectsVolume', $any($event.target).value)" />
+          </label>
+          <label class="range-setting"><span>{{ t("mediaVolume") }}</span><output>{{ settings.mediaVolume }}%</output>
+            <input type="range" min="0" max="100" [value]="settings.mediaVolume" (input)="setVolume('mediaVolume', $any($event.target).value)" />
+          </label>
+        </section>
+
+        <section class="settings-panel">
+          <div class="section-heading"><span class="section-icon" aria-hidden="true">▣</span><span>{{ t("video") }}</span></div>
+          <label class="select-setting"><span>{{ t("display") }}</span>
+            <select [value]="settings.displayId" (change)="setDisplay($any($event.target).value)">
+              @for (display of displayOptions; track display.id) { <option [value]="display.id">{{ display.label }}</option> }
+            </select>
+          </label>
+          <label class="select-setting"><span>{{ t("resolution") }}</span>
+            <select [value]="settings.resolution" (change)="setResolution($any($event.target).value)">
+              @for (resolution of resolutionOptions; track resolution) { <option [value]="resolution">{{ resolution.replace('x', ' × ') }}</option> }
+            </select>
+          </label>
+          <label class="select-setting"><span>{{ t("displayMode") }}</span>
+            <select [value]="settings.displayMode" (change)="setDisplayMode($any($event.target).value)">
+              <option value="windowed">{{ t("windowed") }}</option>
+              <option value="borderless">{{ t("borderless") }}</option>
+              <option value="fullscreen">{{ t("fullscreen") }}</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="settings-panel">
+          <div class="section-heading"><span class="section-icon" aria-hidden="true">●</span><span>{{ t("interface") }}</span></div>
+          <label class="select-setting"><span>{{ t("outputDevice") }}</span>
+            <select [value]="settings.outputDeviceId" [disabled]="!outputSelectionSupported" (change)="setOutputDevice($any($event.target).value)">
+              <option value="default">{{ t("systemDefault") }}</option>
+              @for (device of outputDevices; track device.deviceId) { @if (device.deviceId !== "default") { <option [value]="device.deviceId">{{ device.label }}</option> } }
+            </select>
+          </label>
+          @if (!outputSelectionSupported) { <p class="device-note">{{ t("outputUnsupported") }}</p> }
+
+          <div class="microphone-settings">
+            <span class="subsection-title">{{ t("inputDevice") }}</span>
+            <label class="select-setting microphone-select"><span>{{ t("inputDevice") }}</span>
+              <select [value]="settings.inputDeviceId" (change)="setInputDevice($any($event.target).value)">
+                <option value="default">{{ t("systemDefault") }}</option>
+                @for (device of inputDevices; track device.deviceId) { @if (device.deviceId !== "default") { <option [value]="device.deviceId">{{ device.label }}</option> } }
+              </select>
+            </label>
+            <label class="range-setting microphone-sensitivity"><span>{{ t("microphoneSensitivity") }}</span><output>{{ settings.microphoneSensitivity }}%</output>
+              <input type="range" min="25" max="200" step="5" [value]="settings.microphoneSensitivity" (input)="setMicrophoneSensitivity($any($event.target).value)" />
+            </label>
+            <div class="microphone-test">
+              <div class="test-title"><span>{{ t("microphoneTest") }}</span><strong>{{ isTestingMicrophone ? t("micListening") : t("micIdle") }}</strong></div>
+              <div class="level-meter" role="meter" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="microphoneLevel">
+                <span [style.width.%]="microphoneLevel"></span>
+              </div>
+              <button class="test-button" [class.test-button-active]="isTestingMicrophone" type="button" (click)="toggleMicrophoneTest()">
+                {{ isTestingMicrophone ? t("stopTest") : t("startTest") }}
+              </button>
+            </div>
+            <label class="settings-checkbox"><input type="checkbox" [checked]="settings.pushToTalk" (change)="setPushToTalk($any($event.target).checked)" /><span>{{ t("pushToTalk") }}</span></label>
+            <label class="binding-setting"><span>{{ t("pushToTalkKey") }}</span><button type="button" (keydown)="setBinding('pushToTalkKey', $event)" [attr.title]="t('keyHint')">{{ keyLabel(settings.pushToTalkKey) }}</button></label>
+          </div>
+          @if (deviceFeedback) { <p class="device-note device-error" aria-live="polite">{{ deviceFeedback }}</p> }
+
+          <div class="settings-subsection">
+            <span class="subsection-title">{{ t("controls") }}</span>
+            <label class="binding-setting"><span>{{ t("actionKey") }}</span><button type="button" (keydown)="setBinding('actionKey', $event)" [attr.title]="t('keyHint')">{{ keyLabel(settings.actionKey) }}</button></label>
+          </div>
+
+          <div class="language-setting"><span>{{ t("language") }}</span>
+            <div class="language-toggle" role="group" [attr.aria-label]="t('language')">
+              <button type="button" [class.active]="settings.language === 'en'" (click)="setLanguage('en')">EN · {{ t("english") }}</button>
+              <button type="button" [class.active]="settings.language === 'ru'" (click)="setLanguage('ru')">RU · {{ t("russian") }}</button>
+            </div>
+          </div>
+          <p class="settings-note">{{ t("savedLocally") }}</p>
+        </section>
+      </div>
+    </main>
+  } @else if (view === "packs") {
+    <main class="packs-menu">
+      <header class="packs-header">
+        <button class="back-button" type="button" (click)="closeSubmenu()"><span aria-hidden="true">‹</span>{{ t("back") }}</button>
+        <div><span class="eyebrow">{{ tr("LOCAL GAME LIBRARY", "ЛОКАЛЬНАЯ БИБЛИОТЕКА") }}</span><h1>{{ tr("Game packs", "Игровые паки") }}</h1></div>
+        <button class="create-pack-button" type="button" (click)="startPackSetup()">＋ {{ tr("CREATE", "СОЗДАТЬ") }}</button>
+      </header>
+      <div class="packs-directory"><span aria-hidden="true">▣</span><span><small>{{ tr("PACKS FOLDER", "ПАПКА ПАКОВ") }}</small><strong>{{ packsDirectory }}</strong></span></div>
+      @if (isLoadingPacks) {
+        <div class="packs-empty">{{ tr("Reading packs…", "Читаем паки…") }}</div>
+      } @else if (packSummaries.length === 0) {
+        <div class="packs-empty"><span aria-hidden="true">◇</span><strong>{{ tr("No packs yet", "Паков пока нет") }}</strong><p>{{ tr("Create the first pack — it will appear as a JSON file in the packs folder.", "Создайте первый пак — он появится JSON-файлом в папке packs.") }}</p></div>
+      } @else {
+        <section class="pack-grid" aria-label="Game packs">
+          @for (pack of packSummaries; track pack.id) {
+            <button class="pack-card" type="button" (click)="editPack(pack)">
+              <span class="pack-card-icon" aria-hidden="true">◆</span>
+              <span class="pack-card-copy"><strong>{{ pack.name }}</strong><small class="pack-card-meta"><span>{{ packTypeLabel(pack.gameType) }}</span><span>{{ pack.roundCount }} {{ tr("rounds", "раундов") }}</span></small><span class="pack-tag-list">@if (pack.tags.length === 0) { <small class="pack-no-tags">{{ tr("No tags", "Без тегов") }}</small> } @for (tag of pack.tags; track tag) { <small class="pack-tag">{{ packTagLabel(tag) }}</small> }</span></span>
+              <span class="button-arrow" aria-hidden="true">›</span>
+            </button>
+          }
+        </section>
+      }
+      @if (packFeedback) { <p class="pack-feedback" aria-live="polite">{{ packFeedback }}</p> }
+    </main>
+  } @else if (view === "pack-setup") {
+    <main class="pack-setup">
+      <header class="packs-header">
+        <button class="back-button" type="button" (click)="openPacks()"><span aria-hidden="true">‹</span>{{ t("back") }}</button>
+        <div><span class="eyebrow">{{ tr("NEW CONTENT", "НОВЫЙ КОНТЕНТ") }}</span><h1>{{ tr("Create a pack", "Создание пака") }}</h1></div>
+      </header>
+      <section class="setup-card">
+        <label class="pack-field"><span>{{ tr("Pack name", "Название пака") }}</span><input type="text" maxlength="80" [value]="newPackName" (input)="newPackName = $any($event.target).value" [placeholder]="tr('For example: Friday Jam', 'Например: Пятничный джем')" /></label>
+        <label class="pack-field"><span>{{ tr("Game format", "Тип игры") }}</span><select [value]="newPackType" (change)="newPackType = $any($event.target).value"><option value="topic-clash">{{ packTypeLabel("topic-clash") }}</option><option value="crowd-code">{{ packTypeLabel("crowd-code") }}</option></select></label>
+        <fieldset class="pack-tags-field"><legend>{{ tr("Tags — up to 3", "Теги — до 3") }}</legend><div class="pack-tag-options">@for (tag of packTagOptions; track tag) { <label [class.tag-option-selected]="newPackTags.includes(tag)" [class.tag-option-disabled]="newPackTags.length >= 3 && !newPackTags.includes(tag)"><input type="checkbox" [checked]="newPackTags.includes(tag)" [disabled]="newPackTags.length >= 3 && !newPackTags.includes(tag)" (change)="toggleNewPackTag(tag, $any($event.target).checked)" /><span>{{ packTagLabel(tag) }}</span></label> }</div></fieldset>
+        <div class="format-hint"><span aria-hidden="true">?</span><p>@if (newPackType === "topic-clash") { {{ tr("Rounds, themes and questions with a final.", "Раунды, темы и вопросы с финалом.") }} } @else { {{ tr("Answers ranked by audience popularity. The editor for this format comes next.", "Ответы, расположенные по популярности у аудитории. Редактор этого формата появится следующим.") }} }</p></div>
+        <button class="primary-pack-action" type="button" (click)="createPackDraft()">{{ tr("CONTINUE", "ПРОДОЛЖИТЬ") }} <span aria-hidden="true">›</span></button>
+        @if (packFeedback) { <p class="pack-feedback" aria-live="polite">{{ packFeedback }}</p> }
+      </section>
+    </main>
+  } @else if (view === "pack-editor" && packDraft; as pack) {
+    <main class="pack-editor">
+      <header class="editor-header">
+        <button class="back-button" type="button" (click)="backFromPackEditor()"><span aria-hidden="true">‹</span>{{ tr("Packs", "Паки") }}</button>
+        <div class="editor-title"><span class="eyebrow">{{ packTypeLabel(pack.gameType) }}</span><input type="text" maxlength="80" [value]="pack.name" (input)="pack.name = $any($event.target).value" /></div>
+        <button class="save-pack-button" type="button" [disabled]="isSavingPack" (click)="saveCurrentPack()">{{ isSavingPack ? tr("SAVING…", "СОХРАНЕНИЕ…") : tr("SAVE PACK", "СОХРАНИТЬ") }}</button>
+      </header>
+
+      <fieldset class="pack-tags-field editor-tags-field"><legend>{{ tr("Pack tags — up to 3", "Теги пака — до 3") }}</legend><div class="pack-tag-options">@for (tag of packTagOptions; track tag) { <label [class.tag-option-selected]="pack.tags.includes(tag)" [class.tag-option-disabled]="pack.tags.length >= 3 && !pack.tags.includes(tag)"><input type="checkbox" [checked]="pack.tags.includes(tag)" [disabled]="pack.tags.length >= 3 && !pack.tags.includes(tag)" (change)="togglePackTag(pack, tag, $any($event.target).checked)" /><span>{{ packTagLabel(tag) }}</span></label> }</div></fieldset>
+
+      @if (pack.gameType === "crowd-code") {
+        <section class="coming-editor"><span aria-hidden="true">◎</span><h2>{{ packTypeLabel(pack.gameType) }}</h2><p>{{ tr("The pack can already be saved. Questions and answer ranking for this format will be added in the next step.", "Пак уже можно сохранить. Вопросы и рейтинг ответов для этого формата добавим следующим этапом.") }}</p></section>
+      } @else {
+        <nav class="round-tabs" aria-label="Rounds">
+          @for (round of pack.rounds; track round.id; let roundIndex = $index) {
+            <button type="button" [class.active]="activeRoundIndex === roundIndex" (click)="selectEditorRound(roundIndex)">{{ round.name || tr("Round", "Раунд") + " " + (roundIndex + 1) }}</button>
+          }
+          <button class="add-tab" type="button" [disabled]="pack.rounds.length >= 8" (click)="addRound()">＋ {{ tr("ROUND", "РАУНД") }}</button>
+          <button class="final-tab" type="button" [class.active]="activeRoundIndex === -1" (click)="selectEditorRound(-1)">★ {{ tr("FINAL", "ФИНАЛ") }}</button>
+        </nav>
+
+        @if (activeRoundIndex >= 0 && activeRound; as round) {
+          <section class="round-editor">
+            <div class="round-toolbar">
+              <label class="pack-field compact"><span>{{ tr("Round name", "Название раунда") }}</span><input type="text" maxlength="60" [value]="round.name" (input)="round.name = $any($event.target).value" /></label>
+              <span class="limit-chip">{{ round.themes.length }}/8 {{ tr("themes", "тем") }}</span>
+              <button class="danger-action" type="button" [disabled]="pack.rounds.length <= 2" (click)="removeRound(activeRoundIndex)">− {{ tr("DELETE ROUND", "УДАЛИТЬ РАУНД") }}</button>
+            </div>
+
+            <div class="theme-list">
+              @for (theme of round.themes; track theme.id; let themeIndex = $index) {
+                <details class="theme-editor" [class.incomplete-card]="!isStandardThemeComplete(theme)">
+                  <summary class="theme-header"><span class="theme-number">{{ themeIndex + 1 }}</span><strong>{{ theme.name || tr("Theme name is missing", "Название темы не указано") }}</strong><span class="theme-status" [class.theme-status-error]="!isStandardThemeComplete(theme)">{{ isStandardThemeComplete(theme) ? theme.questions.length + "/9" : tr("Incomplete", "Не заполнено") }}</span></summary>
+                  <div class="theme-body">
+                    <div class="theme-controls"><label class="pack-field"><span>{{ tr("Theme name", "Название темы") }}</span><input type="text" maxlength="80" [value]="theme.name" (input)="theme.name = $any($event.target).value" [placeholder]="tr('Theme name', 'Название темы')" /></label><button class="danger-action" type="button" [disabled]="round.themes.length <= 3" (click)="removeTheme(round, themeIndex)">− {{ tr("DELETE THEME", "УДАЛИТЬ ТЕМУ") }}</button></div>
+                    <div class="question-list">
+                    @for (question of theme.questions; track question.id; let questionIndex = $index) {
+                      <details class="question-card" [class.incomplete-card]="!isStandardQuestionComplete(question)" [open]="expandedQuestionId === question.id">
+                        <summary (click)="toggleQuestion($event, question.id)"><span>{{ tr("Question", "Вопрос") }} {{ questionIndex + 1 }} @if (question.isCatInBag) { · {{ tr("cat in the bag", "кот в мешке") }} } @if (!isStandardQuestionComplete(question)) { · <em>{{ tr("incomplete", "не заполнен") }}</em> }</span><span>{{ question.value === null ? tr("no value", "без цены") : question.value + " ◆" }} @if (question.isCatInBag && question.catValue !== null) { / {{ question.catValue }} ◆ }</span></summary>
+                        <div class="question-form">
+                          <label class="pack-field wide"><span>{{ tr("Question text (optional with media)", "Текст вопроса (необязательно при наличии медиа)") }}</span><textarea rows="3" [value]="question.text" (input)="question.text = $any($event.target).value"></textarea></label>
+                          <label class="pack-field value-field"><span>{{ tr("Value *", "Ценность *") }}</span><input type="number" step="10" [value]="question.value ?? ''" (input)="setQuestionValue(question, $any($event.target).value)" [placeholder]="tr('Required', 'Обязательно')" /></label>
+                          <div class="cat-in-bag-field">
+                            <label class="checkbox-field"><input type="checkbox" [checked]="question.isCatInBag" (change)="setCatInBag(question, $any($event.target).checked)" /><span>{{ tr("Cat in the bag", "Кот в мешке") }}</span></label>
+                            @if (question.isCatInBag) {
+                              <label class="pack-field"><span>{{ tr("Second value *", "Вторая ценность *") }}</span><input type="number" step="10" [value]="question.catValue ?? ''" (input)="setCatValue(question, $any($event.target).value)" [placeholder]="tr('Required', 'Обязательно')" /></label>
+                            }
+                          </div>
+                          <div class="attachment-field"><span>{{ tr("Question media", "Медиа вопроса") }}</span><label class="file-button">＋ {{ tr("IMAGE / VIDEO / AUDIO", "КАРТИНКА / ВИДЕО / АУДИО") }}<input #questionMedia type="file" accept="image/*,video/*,audio/*" (change)="attachQuestionMedia(question, questionMedia)" /></label>@if (question.media; as media) { <span class="attachment-chip">{{ media.name }} @if (media.durationSeconds) { · {{ media.durationSeconds.toFixed(1) }}s } <button type="button" (click)="question.media = null; questionMedia.value = ''">×</button></span> }<small>{{ tr("Video ≤15 sec · audio ≤30 sec", "Видео ≤15 сек · аудио ≤30 сек") }}</small></div>
+                          <label class="pack-field wide answer-field"><span>{{ tr("Answer text *", "Текст ответа *") }}</span><textarea rows="2" [value]="question.answerText" (input)="question.answerText = $any($event.target).value"></textarea></label>
+                          <div class="attachment-field"><span>{{ tr("Answer image", "Картинка к ответу") }}</span><label class="file-button">＋ {{ tr("IMAGE", "КАРТИНКА") }}<input #answerImage type="file" accept="image/*" (change)="attachAnswerImage(question, answerImage)" /></label>@if (question.answerImage; as image) { <span class="attachment-chip">{{ image.name }} <button type="button" (click)="question.answerImage = null; answerImage.value = ''">×</button></span> }</div>
+                          <button class="danger-action question-delete" type="button" [disabled]="theme.questions.length <= 4" (click)="removeQuestion(theme, questionIndex)">− {{ tr("DELETE QUESTION", "УДАЛИТЬ ВОПРОС") }}</button>
+                        </div>
+                      </details>
+                    }
+                    </div>
+                    <button class="add-content-button" type="button" [disabled]="theme.questions.length >= 9" (click)="addQuestion(theme)">＋ {{ tr("ADD QUESTION", "ДОБАВИТЬ ВОПРОС") }}</button>
+                  </div>
+                </details>
+              }
+            </div>
+            <button class="add-content-button add-theme-button" type="button" [disabled]="round.themes.length >= 8" (click)="addTheme(round)">＋ {{ tr("ADD THEME", "ДОБАВИТЬ ТЕМУ") }}</button>
+          </section>
+        } @else {
+          <section class="round-editor final-editor">
+            <div class="round-toolbar"><div><span class="eyebrow">{{ tr("LAST CHANCE", "РЕШАЮЩИЙ ЭТАП") }}</span><h2>{{ tr("Final themes", "Темы финала") }}</h2></div><span class="limit-chip">{{ pack.finalThemes.length }}/12 {{ tr("themes", "тем") }}</span></div>
+            <p class="editor-help">{{ tr("Each final theme has exactly one question.", "В каждой теме финала находится ровно один вопрос.") }}</p>
+            <div class="theme-list final-theme-list">
+              @for (theme of pack.finalThemes; track theme.id; let themeIndex = $index) {
+                <details class="theme-editor">
+                  <summary class="theme-header"><span class="theme-number">★</span><strong>{{ theme.name || tr("Final theme name is missing", "Название темы финала не указано") }}</strong><span class="theme-status">{{ tr("Final", "Финал") }}</span></summary>
+                  <div class="theme-body">
+                    <div class="theme-controls"><label class="pack-field"><span>{{ tr("Final theme name", "Название темы финала") }}</span><input type="text" maxlength="80" [value]="theme.name" (input)="theme.name = $any($event.target).value" [placeholder]="tr('Final theme name', 'Название темы финала')" /></label><button class="danger-action" type="button" [disabled]="pack.finalThemes.length <= 3" (click)="removeFinalTheme(themeIndex)">− {{ tr("DELETE THEME", "УДАЛИТЬ ТЕМУ") }}</button></div>
+                    @for (question of theme.questions; track question.id) {
+                      <div class="question-form final-question-form">
+                      <label class="pack-field wide"><span>{{ tr("Question text (optional with media)", "Текст вопроса (необязательно при наличии медиа)") }}</span><textarea rows="3" [value]="question.text" (input)="question.text = $any($event.target).value"></textarea></label>
+                      <div class="attachment-field"><span>{{ tr("Question media", "Медиа вопроса") }}</span><label class="file-button">＋ {{ tr("ADD FILE", "ДОБАВИТЬ ФАЙЛ") }}<input #finalMedia type="file" accept="image/*,video/*,audio/*" (change)="attachQuestionMedia(question, finalMedia)" /></label>@if (question.media; as media) { <span class="attachment-chip">{{ media.name }} <button type="button" (click)="question.media = null; finalMedia.value = ''">×</button></span> }<small>{{ tr("Video ≤15 sec · audio ≤30 sec", "Видео ≤15 сек · аудио ≤30 сек") }}</small></div>
+                      <label class="pack-field wide answer-field"><span>{{ tr("Answer text *", "Текст ответа *") }}</span><textarea rows="2" [value]="question.answerText" (input)="question.answerText = $any($event.target).value"></textarea></label>
+                      <div class="attachment-field"><span>{{ tr("Answer image", "Картинка к ответу") }}</span><label class="file-button">＋ {{ tr("IMAGE", "КАРТИНКА") }}<input #finalAnswer type="file" accept="image/*" (change)="attachAnswerImage(question, finalAnswer)" /></label>@if (question.answerImage; as image) { <span class="attachment-chip">{{ image.name }} <button type="button" (click)="question.answerImage = null; finalAnswer.value = ''">×</button></span> }</div>
+                      </div>
+                    }
+                  </div>
+                </details>
+              }
+            </div>
+            <button class="add-content-button add-theme-button" type="button" [disabled]="pack.finalThemes.length >= 12" (click)="addFinalTheme()">＋ {{ tr("ADD FINAL THEME", "ДОБАВИТЬ ТЕМУ ФИНАЛА") }}</button>
+          </section>
+        }
+      }
+      <div class="editor-savebar"><span class="pack-feedback" aria-live="polite">{{ packFeedback }}</span><button class="save-pack-button" type="button" [disabled]="isSavingPack" (click)="saveCurrentPack()">{{ tr("SAVE PACK", "СОХРАНИТЬ ПАК") }}</button></div>
+    </main>
+  }
+
+  <footer class="footer-note" aria-label="Connection state"><span class="status-dot"></span><span>{{ t("ready") }}</span></footer>
+</div>

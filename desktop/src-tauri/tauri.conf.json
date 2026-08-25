@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Mind Jam",
+  "version": "0.1.0",
+  "identifier": "com.mindjam.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm ng serve --port 1420",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist/desktop/browser"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Mind Jam",
+        "width": 1100,
+        "height": 760,
+        "minWidth": 360,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
