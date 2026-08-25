@@ -471,7 +471,7 @@
       <header class="packs-header">
         <button class="back-button" type="button" (click)="closeSubmenu()"><span aria-hidden="true">‹</span>{{ t("back") }}</button>
         <div><span class="eyebrow">{{ tr("LOCAL GAME LIBRARY", "ЛОКАЛЬНАЯ БИБЛИОТЕКА") }}</span><h1>{{ tr("Game packs", "Игровые паки") }}</h1></div>
-        <button class="create-pack-button" type="button" (click)="startPackSetup()">＋ {{ tr("CREATE", "СОЗДАТЬ") }}</button>
+        <div class="pack-library-actions"><button class="import-pack-button" type="button" [disabled]="isImportingPack || packOperationFileName !== null" (click)="importPackFile()">⇩ {{ isImportingPack ? tr("IMPORTING…", "ИМПОРТ…") : tr("IMPORT", "ИМПОРТ") }}</button><button class="create-pack-button" type="button" [disabled]="isImportingPack || packOperationFileName !== null" (click)="startPackSetup()">＋ {{ tr("CREATE", "СОЗДАТЬ") }}</button></div>
       </header>
       <div class="packs-directory"><span aria-hidden="true">▣</span><span><small>{{ tr("PACKS FOLDER", "ПАПКА ПАКОВ") }}</small><strong>{{ packsDirectory }}</strong></span></div>
       @if (isLoadingPacks) {
@@ -481,11 +481,14 @@
       } @else {
         <section class="pack-grid" aria-label="Game packs">
           @for (pack of packSummaries; track pack.id) {
-            <button class="pack-card" type="button" (click)="editPack(pack)">
-              <span class="pack-card-icon" aria-hidden="true">◆</span>
-              <span class="pack-card-copy"><strong>{{ pack.name }}</strong><small class="pack-card-meta"><span>{{ packTypeLabel(pack.gameType) }}</span><span>{{ pack.roundCount }} {{ tr("rounds", "раундов") }}</span></small><span class="pack-tag-list">@if (pack.tags.length === 0) { <small class="pack-no-tags">{{ tr("No tags", "Без тегов") }}</small> } @for (tag of pack.tags; track tag) { <small class="pack-tag">{{ packTagLabel(tag) }}</small> }</span></span>
-              <span class="button-arrow" aria-hidden="true">›</span>
-            </button>
+            <article class="pack-card">
+              <button class="pack-card-open" type="button" [disabled]="packOperationFileName !== null || isImportingPack" (click)="editPack(pack)">
+                <span class="pack-card-icon" aria-hidden="true">◆</span>
+                <span class="pack-card-copy"><strong>{{ pack.name }}</strong><small class="pack-card-meta"><span>{{ packTypeLabel(pack.gameType) }}</span><span>{{ pack.roundCount }} {{ tr("rounds", "раундов") }}</span></small><span class="pack-tag-list">@if (pack.tags.length === 0) { <small class="pack-no-tags">{{ tr("No tags", "Без тегов") }}</small> } @for (tag of pack.tags; track tag) { <small class="pack-tag">{{ packTagLabel(tag) }}</small> }</span></span>
+                <span class="button-arrow" aria-hidden="true">›</span>
+              </button>
+              <div class="pack-card-actions"><button type="button" [disabled]="packOperationFileName !== null || isImportingPack" (click)="exportPack(pack)">⇧ {{ tr("EXPORT", "ЭКСПОРТ") }}</button><button class="pack-delete-button" type="button" [disabled]="packOperationFileName !== null || isImportingPack" (click)="deletePack(pack)">× {{ tr("DELETE", "УДАЛИТЬ") }}</button></div>
+            </article>
           }
         </section>
       }

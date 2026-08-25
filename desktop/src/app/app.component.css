@@ -1963,7 +1963,7 @@ button {
 .packs-header,
 .editor-header {
   display: grid;
-  grid-template-columns: 8rem 1fr 9rem;
+  grid-template-columns: 8rem 1fr 18rem;
   align-items: center;
   gap: 1rem;
   text-align: center;
@@ -1979,6 +1979,7 @@ button {
 }
 
 .create-pack-button,
+.import-pack-button,
 .save-pack-button,
 .primary-pack-action {
   min-height: 2.85rem;
@@ -1994,11 +1995,15 @@ button {
 }
 
 .create-pack-button:hover,
+.import-pack-button:hover,
 .save-pack-button:hover,
 .primary-pack-action:hover {
   filter: brightness(1.1);
   transform: translateY(-1px);
 }
+.pack-library-actions { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+.import-pack-button { border-color:var(--mint); color:var(--cream); background:linear-gradient(#426d67,#29464a); box-shadow:0 4px 0 #14252d; }
+.pack-library-actions button:disabled { opacity:.5; cursor:wait; }
 .save-pack-button:disabled {
   cursor: wait;
   opacity: 0.65;
@@ -2069,11 +2074,9 @@ button {
 
 .pack-card {
   display: grid;
-  grid-template-columns: 3.3rem 1fr auto;
-  align-items: center;
-  gap: 0.75rem;
+  gap: 0.45rem;
   min-height: 6.2rem;
-  padding: 0.8rem;
+  padding: 0.55rem;
   border: 2px solid #754b78;
   border-radius: 0.8rem;
   color: var(--cream);
@@ -2081,6 +2084,14 @@ button {
   box-shadow: 0 5px 0 #150b21;
   text-align: left;
 }
+
+.pack-card-open { display:grid; width:100%; grid-template-columns:3.3rem 1fr auto; align-items:center; gap:.75rem; padding:.25rem; border:0; color:var(--cream); background:transparent; text-align:left; }
+.pack-card-open:disabled { opacity:.55; cursor:wait; }
+.pack-card-actions { display:grid; grid-template-columns:1fr 1fr; gap:.4rem; padding-top:.45rem; border-top:1px solid #67416f; }
+.pack-card-actions button { min-height:2rem; padding:.35rem .5rem; border:1px solid #79517d; border-radius:.4rem; color:var(--mint); background:#2b1839; font-size:.6rem; font-weight:950; }
+.pack-card-actions button:hover:not(:disabled) { border-color:var(--mint); filter:brightness(1.15); }
+.pack-card-actions .pack-delete-button { border-color:#92505d; color:#ffd4cf; background:#5f293b; }
+.pack-card-actions button:disabled { opacity:.45; cursor:wait; }
 
 .pack-card:hover {
   border-color: var(--yellow);
@@ -2829,7 +2840,7 @@ button {
   .editor-header {
     grid-template-columns: 5.5rem 1fr;
   }
-  .packs-header .create-pack-button,
+  .packs-header .pack-library-actions,
   .editor-header .save-pack-button {
     grid-column: 1 / -1;
   }

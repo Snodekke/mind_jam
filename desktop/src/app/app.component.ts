@@ -222,6 +222,8 @@ export class AppComponent implements OnInit, OnDestroy {
   packsDirectory = "packs";
   isLoadingPacks = false;
   isSavingPack = false;
+  isImportingPack = false;
+  packOperationFileName: string | null = null;
   packFeedback = "";
   newPackName = "";
   newPackType: PackGameType = "topic-clash";
@@ -694,7 +696,9 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
     this.resumeQuestionTimerSound();
-    document.querySelectorAll<HTMLMediaElement>(".offline-game-scene audio,.offline-game-scene video").forEach((media) => void media.play().catch(() => undefined));
+    if (this.offlineQuestionStage === "media") {
+      document.querySelectorAll<HTMLMediaElement>(".offline-game-scene audio,.offline-game-scene video").forEach((media) => void media.play().catch(() => undefined));
+    }
     this.resumeOfflineGameState();
   }
 
@@ -1289,8 +1293,6 @@ export class AppComponent implements OnInit, OnDestroy {
   private startOfflineAnswerWindow(): void {
     this.clearOfflineMediaTimer();
     document.querySelectorAll<HTMLMediaElement>(".offline-game-scene audio,.offline-game-scene video").forEach((media) => media.pause());
-    this.offlineQuestionMediaVisible = false;
-    this.clearOfflineMediaSource();
     this.offlineHostAnimation = "idle";
     if (this.offlineIsFinalQuestion) {
       this.startOfflineFinalAnswers();
@@ -1860,6 +1862,73 @@ export class AppComponent implements OnInit, OnDestroy {
       this.packFeedback = this.tr("Unable to read the packs folder", "Не удалось прочитать папку packs");
     } finally {
       this.isLoadingPacks = false;
+    }
+  }
+
+  async importPackFile(): Promise<void> {
+    if (this.isImportingPack || this.packOperationFileName) return;
+    this.packFeedback = "";
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const sourcePath = await open({
+      multiple: false,
+      directory: false,
+      title: this.tr("Import a game pack", "Импорт игрового пака"),
+      filters: [{ name: this.tr("Mind Jam pack", "Пак Mind Jam"), extensions: ["json"] }],
+    });
+    if (!sourcePath) return;
+    this.isImportingPack = true;
+    try {
+      const imported = await this.packStorage.import(sourcePath);
+      const listing = await this.packStorage.list();
+      this.packSummaries = listing.packs;
+      this.packsDirectory = listing.directory;
+      this.packFeedback = this.tr(`Pack “${imported.name}” imported`, `Пак «${imported.name}» импортирован`);
+    } catch {
+      this.packFeedback = this.tr("Unable to import this pack. Check that it is a valid Mind Jam JSON pack.", "Не удалось импортировать пак. Проверьте, что это корректный JSON-пак Mind Jam.");
+    } finally {
+      this.isImportingPack = false;
+    }
+  }
+
+  async exportPack(summary: PackSummary): Promise<void> {
+    if (this.isImportingPack || this.packOperationFileName) return;
+    this.packFeedback = "";
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const directoryPath = await open({
+      multiple: false,
+      directory: true,
+      title: this.tr("Choose a folder for the pack", "Выберите папку для пака"),
+    });
+    if (!directoryPath) return;
+    this.packOperationFileName = summary.fileName;
+    try {
+      const exportedPath = await this.packStorage.export(summary.fileName, directoryPath);
+      this.packFeedback = this.tr(`Pack exported to ${exportedPath}`, `Пак экспортирован: ${exportedPath}`);
+    } catch {
+      this.packFeedback = this.tr("Unable to export this pack", "Не удалось экспортировать пак");
+    } finally {
+      this.packOperationFileName = null;
+    }
+  }
+
+  async deletePack(summary: PackSummary): Promise<void> {
+    if (this.isImportingPack || this.packOperationFileName) return;
+    const { confirm } = await import("@tauri-apps/plugin-dialog");
+    const approved = await confirm(
+      this.tr(`Delete “${summary.name}”? This cannot be undone.`, `Удалить «${summary.name}»? Это действие нельзя отменить.`),
+      { title: "Mind Jam", kind: "warning" },
+    );
+    if (!approved) return;
+    this.packOperationFileName = summary.fileName;
+    try {
+      await this.packStorage.delete(summary.fileName);
+      this.packSummaries = this.packSummaries.filter((pack) => pack.fileName !== summary.fileName);
+      if (this.selectedOfflinePackFile === summary.fileName) this.selectedOfflinePackFile = "";
+      this.packFeedback = this.tr(`Pack “${summary.name}” deleted`, `Пак «${summary.name}» удалён`);
+    } catch {
+      this.packFeedback = this.tr("Unable to delete this pack", "Не удалось удалить пак");
+    } finally {
+      this.packOperationFileName = null;
     }
   }
 

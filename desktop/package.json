@@ -18,6 +18,7 @@
     "tslib": "^2.8.1",
     "zone.js": "~0.15.1",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
     "@tauri-apps/plugin-opener": "^2"
   },
   "devDependencies": {
