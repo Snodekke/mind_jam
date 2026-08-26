@@ -1,3 +1,5 @@
+mod p2p;
+
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     FromSample, Sample, SampleFormat, SizedSample, Stream,
@@ -25,6 +27,22 @@ struct AudioDevice {
 struct AudioDevices {
     inputs: Vec<AudioDevice>,
     outputs: Vec<AudioDevice>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BuildInfo {
+    variant: &'static str,
+    requires_system_gstreamer: bool,
+}
+
+#[tauri::command]
+fn get_build_info() -> BuildInfo {
+    let variant = option_env!("MIND_JAM_BUILD_VARIANT").unwrap_or("standard");
+    BuildInfo {
+        variant,
+        requires_system_gstreamer: variant == "arch-linux-system-gstreamer",
+    }
 }
 
 struct Voice {
@@ -542,17 +560,28 @@ fn exit_app(app: tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let _ = packs_directory();
     tauri::Builder::default()
         .manage(Mutex::new(NativeAudioState::default()))
+        .manage(Mutex::new(p2p::P2pRuntime::default()))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            get_build_info,
             list_packs,
             load_pack,
             save_pack,
             import_pack,
             export_pack,
             delete_pack,
+            p2p::host_p2p_room,
+            p2p::join_p2p_room,
+            p2p::claim_p2p_seat,
+            p2p::send_p2p_action,
+            p2p::send_p2p_chat,
+            p2p::send_p2p_question_selection,
+            p2p::update_hosted_room,
+            p2p::close_p2p_room,
             list_audio_devices,
             set_output_device,
             play_tone,

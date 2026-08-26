@@ -1,4 +1,4 @@
-<div class="game-shell" [class]="themeClass" [class.offline-game-active]="view === 'offline-game'">
+<div class="game-shell" [class]="themeClass" [class.offline-game-active]="view === 'offline-game' || view === 'online-room'">
   <div class="pixel-grid" aria-hidden="true"></div>
   <div class="glow glow-left" aria-hidden="true"></div>
   <div class="glow glow-right" aria-hidden="true"></div>
@@ -43,6 +43,36 @@
         </button>
       </nav>
       <p class="feedback" [class.feedback-visible]="feedback" aria-live="polite">{{ feedback }}</p>
+    </main>
+  } @else if (view === "online-mode") {
+    <main class="offline-mode-menu online-mode-menu">
+      <header class="offline-header"><button class="back-button" type="button" (click)="closeSubmenu()"><span aria-hidden="true">‹</span>{{ t("back") }}</button><div><span class="eyebrow">P2P · IROH</span><h1>{{ tr("Online game", "Играть онлайн") }}</h1></div></header>
+      <section class="offline-mode-grid">
+        <button class="offline-mode-card" type="button" (click)="openOnlineCreate()"><span class="offline-mode-icon" aria-hidden="true">＋</span><span><strong>{{ tr("CREATE ROOM", "СОЗДАТЬ КОМНАТУ") }}</strong><small>{{ tr("Host a direct encrypted room with relay fallback", "Создать зашифрованную комнату с резервным relay") }}</small></span><span class="button-arrow" aria-hidden="true">›</span></button>
+        <button class="offline-mode-card" type="button" (click)="openOnlineJoin()"><span class="offline-mode-icon" aria-hidden="true">⇄</span><span><strong>{{ tr("JOIN ROOM", "ПОДКЛЮЧИТЬСЯ К КОМНАТЕ") }}</strong><small>{{ tr("Enter the connection string received from the host", "Введите строку подключения от ведущего") }}</small></span><span class="button-arrow" aria-hidden="true">›</span></button>
+      </section>
+    </main>
+  } @else if (view === "online-create") {
+    <main class="offline-setup-menu online-setup-menu">
+      <header class="offline-header"><button class="back-button" type="button" (click)="view = 'online-mode'"><span aria-hidden="true">‹</span>{{ t("back") }}</button><div><span class="eyebrow">P2P · {{ tr("HOST", "ВЕДУЩИЙ") }}</span><h1>{{ tr("Create room", "Создание комнаты") }}</h1></div></header>
+      <section class="offline-setup-panel">
+        <div class="online-room-fields"><label class="pack-field"><span>{{ tr("Room name", "Название комнаты") }}</span><input type="text" maxlength="64" [value]="onlineRoomName" (input)="onlineRoomName = $any($event.target).value" /></label><label class="pack-field"><span>{{ tr("Connection password", "Пароль для подключения") }}</span><input type="password" maxlength="64" [value]="onlineRoomPassword" (input)="onlineRoomPassword = $any($event.target).value" /></label></div>
+        <div class="bot-count-setting"><span><small>{{ tr("Maximum participants", "Максимум участников") }}</small><strong>{{ onlineMaxParticipants }}</strong></span><div class="bot-count-controls"><button type="button" [disabled]="onlineMaxParticipants <= 2" (click)="onlineMaxParticipants = onlineMaxParticipants - 1">−</button><input type="range" min="2" max="12" step="1" [value]="onlineMaxParticipants" (input)="onlineMaxParticipants = $any($event.target).valueAsNumber" /><button type="button" [disabled]="onlineMaxParticipants >= 12" (click)="onlineMaxParticipants = onlineMaxParticipants + 1">＋</button></div></div>
+        <div class="offline-team-setting"><label><input type="checkbox" [checked]="onlineTeamMode" (change)="onlineTeamMode = $any($event.target).checked" /><span>{{ tr("Team game", "Командная игра") }}</span></label>@if (onlineTeamMode) { <label class="pack-field"><span>{{ tr("Number of teams", "Количество команд") }}</span><select [value]="onlineTeamCount" (change)="setOnlineTeamCount($any($event.target).value)">@for (team of [2,3,4]; track team) { <option [value]="team">{{ team }}</option> }</select></label> }</div>
+        <div class="offline-pack-choice"><label class="pack-field"><span>{{ t("choosePack") }}</span><select [value]="onlineSelectedPackFile" (change)="onlineSelectedPackFile = $any($event.target).value">@if (offlinePackSummaries.length === 0) { <option value="">{{ t("noPlayablePacks") }}</option> } @for (pack of offlinePackSummaries; track pack.fileName) { <option [value]="pack.fileName">{{ pack.name }} · {{ packTypeLabel(pack.gameType) }}</option> }</select></label><button class="offline-start-button" type="button" [disabled]="onlineBusy || !onlineRoomName.trim() || !onlineRoomPassword || !onlineSelectedPackFile" (click)="createOnlineRoom()">{{ onlineBusy ? tr("CREATING…", "СОЗДАНИЕ…") : tr("CREATE ROOM", "СОЗДАТЬ КОМНАТУ") }}</button></div>
+        @if (onlineFeedback) { <p class="pack-feedback" aria-live="polite">{{ onlineFeedback }}</p> }
+      </section>
+    </main>
+  } @else if (view === "online-join") {
+    <main class="pack-setup online-join-menu"><header class="packs-header"><button class="back-button" type="button" (click)="view = 'online-mode'"><span aria-hidden="true">‹</span>{{ t("back") }}</button><div><span class="eyebrow">P2P · {{ tr("PARTICIPANT", "УЧАСТНИК") }}</span><h1>{{ tr("Join room", "Подключение к комнате") }}</h1></div></header><section class="setup-card"><label class="pack-field"><span>{{ tr("Connection string", "Строка подключения") }}</span><textarea rows="5" [value]="onlineJoinConnectionString" (input)="onlineJoinConnectionString = $any($event.target).value" [placeholder]="tr('Paste the mindjam:// connection string', 'Вставьте строку подключения mindjam://')"></textarea></label><button class="primary-pack-action" type="button" [disabled]="onlineBusy || !onlineJoinConnectionString.trim()" (click)="joinOnlineRoom()">{{ onlineBusy ? tr("CONNECTING…", "ПОДКЛЮЧЕНИЕ…") : tr("CONNECT", "ПОДКЛЮЧИТЬСЯ") }}</button>@if (onlineFeedback) { <p class="pack-feedback" aria-live="polite">{{ onlineFeedback }}</p> }</section></main>
+  } @else if (view === "online-room" && onlineRoomSnapshot; as room) {
+    <main class="online-room-scene">
+      <div class="online-room-toolbar"><button class="online-info-button" type="button" (click)="onlineInfoOpen = !onlineInfoOpen" [attr.aria-label]="tr('Room information', 'Информация о комнате')">i</button><button class="game-settings-button" type="button" (click)="openSettings()" [attr.aria-label]="t('settings')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.9 7.9 0 0 0 .1-1 7.9 7.9 0 0 0-.1-1l2.1-1.6-2-3.4-2.5 1a8 8 0 0 0-1.7-1L15 3.4h-4L10.6 6a8 8 0 0 0-1.7 1L6.5 6l-2 3.4L6.6 11a7.9 7.9 0 0 0-.1 1 7.9 7.9 0 0 0 .1 1l-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 1.7 1l2.5 1 2-3.4L19.4 13Z" /></svg></button><button class="game-exit-button" type="button" (click)="exitOnlineRoom()">×</button></div>
+      @if (onlineInfoOpen && onlineRole === "host") { <aside class="online-room-info"><strong>{{ tr("ROOM INFORMATION", "ИНФОРМАЦИЯ О КОМНАТЕ") }}</strong><button type="button" (click)="copyOnlineConnectionString()">{{ tr("Copy connection string", "Скопировать строку подключения") }}</button></aside> }
+      <header class="online-room-title"><span class="eyebrow">P2P · {{ onlineRole === "host" ? tr("HOST", "ВЕДУЩИЙ") : tr("PARTICIPANT", "УЧАСТНИК") }}</span><h1>{{ room.config.roomName }}</h1><small>{{ onlineConnectedCount }} / {{ room.config.maxParticipants }} · {{ room.gameStarted ? tr("GAME IN PROGRESS", "ИГРА ИДЁТ") : tr("WAITING FOR START", "ОЖИДАНИЕ НАЧАЛА") }}</small></header>
+      @if (room.config.teamMode) { <section class="online-table-grid online-team-table-grid">@for (team of [1,2,3,4].slice(0, room.config.teamCount); track team) { <article class="online-table"><h2>{{ tr("Team", "Команда") }} {{ team }}</h2><div>@for (seat of onlineTeamSeats(team); track seat.index) { <button type="button" [class.online-seat-mine]="onlineSeatIndex === seat.index" [class.online-seat-disconnected]="seat.name && !seat.connected" [disabled]="onlineRole !== 'participant' || (seat.name !== null && onlineSeatIndex !== seat.index)" (click)="claimOnlineSeat(seat.index)"><strong>{{ seat.name ?? tr("Empty seat", "Свободное место") }}</strong><small>{{ seat.connected ? tr("ONLINE", "В СЕТИ") : seat.name ? tr("RESERVED", "ЗАРЕЗЕРВИРОВАНО") : tr("SIT HERE", "ЗАНЯТЬ") }}</small><b>{{ seat.score }}</b></button> }</div></article> }</section> } @else { <section class="online-table-grid">@for (seat of room.seats; track seat.index) { <button class="online-table" type="button" [class.online-seat-mine]="onlineSeatIndex === seat.index" [class.online-seat-disconnected]="seat.name && !seat.connected" [disabled]="onlineRole !== 'participant' || (seat.name !== null && onlineSeatIndex !== seat.index)" (click)="claimOnlineSeat(seat.index)"><span>{{ seat.index + 1 }}</span><strong>{{ seat.name ?? tr("Empty table", "Свободный стол") }}</strong><small>{{ seat.connected ? tr("ONLINE", "В СЕТИ") : seat.name ? tr("RESERVED FOR RECONNECT", "МЕСТО СОХРАНЕНО") : tr("CLICK TO SIT", "НАЖМИТЕ, ЧТОБЫ СЕСТЬ") }}</small><b>{{ seat.score }}</b></button> }</section> }
+      @if (onlineRole === "host") { <button class="online-room-start" type="button" [disabled]="onlineBusy || onlineConnectedCount < 1" (click)="startHostedOnlineGame()">{{ tr("START GAME", "НАЧАТЬ ИГРУ") }}</button> } @else if (onlineSeatIndex === null) { <p class="online-room-hint">{{ tr("Choose a table to join the room", "Выберите стол, чтобы войти в комнату") }}</p> } @else { <p class="online-room-hint">{{ tr("Waiting for the host to start", "Ожидаем начала игры") }}</p> }
+      @if (onlineFeedback) { <p class="online-room-feedback" aria-live="polite">{{ onlineFeedback }}</p> }
     </main>
   } @else if (view === "offline-mode") {
     <main class="offline-mode-menu">
@@ -131,22 +161,24 @@
   } @else if (view === "offline-game" && offlineGamePack; as gamePack) {
     <main class="offline-game-scene" [class.final-elimination-transition]="offlineGamePhase === 'final-elimination'">
       <div class="game-room-actions">
-        @if (offlineRoomMode === "hotseat") {
+        @if (offlineRoomMode === "hotseat" && !onlineRole) {
           <button class="game-key-settings-button" type="button" (click)="toggleOfflineKeySettings()" [attr.aria-label]="tr('Answer key settings', 'Настройка клавиш ответа')" [attr.title]="tr('Answer key settings', 'Настройка клавиш ответа')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Zm1 3v2h2V9H5Zm4 0v2h2V9H9Zm4 0v2h2V9h-2Zm4 0v2h2V9h-2ZM5 13v2h2v-2H5Zm4 0v2h6v-2H9Zm8 0v2h2v-2h-2Z" /></svg></button>
         }
-        @if (!offlineBotHostActive) {
+        @if (!isParticipantGameView) {
           <button class="game-back-state-button" type="button" [disabled]="!canRewindOfflineGame" (click)="rewindOfflineGame()" [attr.aria-label]="tr('Previous game screen', 'Предыдущее состояние игрового экрана')" [attr.title]="tr('Back to question selection or replay the previous question', 'Назад к выбору вопроса или повтор предыдущего вопроса')"><span aria-hidden="true">↶</span></button>
           <button class="game-pause-button" type="button" [disabled]="!offlineGameStarted" (click)="toggleOfflinePause()" [attr.aria-label]="offlineGamePaused ? tr('Resume game', 'Продолжить игру') : tr('Pause game', 'Поставить игру на паузу')" [attr.title]="offlineGamePaused ? tr('Resume game', 'Продолжить игру') : tr('Pause game', 'Поставить игру на паузу')"><span aria-hidden="true">{{ offlineGamePaused ? "▶" : "Ⅱ" }}</span></button>
           <button class="game-skip-button" type="button" [disabled]="!canSkipOfflineQuestion" (click)="skipOfflineQuestion()" [attr.aria-label]="tr('Skip question', 'Пропустить вопрос')" [attr.title]="tr('Skip question', 'Пропустить вопрос')"><span aria-hidden="true">↷</span><b>{{ tr("SKIP QUESTION", "ПРОПУСТИТЬ ВОПРОС") }}</b></button>
           <button class="game-skip-button game-skip-round-button" type="button" [disabled]="!canSkipOfflineRound" (click)="skipOfflineRound()" [attr.aria-label]="tr('Skip round', 'Пропустить раунд')" [attr.title]="tr('Skip round', 'Пропустить раунд')"><span aria-hidden="true">≫</span><b>{{ tr("SKIP ROUND", "ПРОПУСТИТЬ РАУНД") }}</b></button>
         }
+        @if (onlineRole === "host") { <button class="online-info-button" type="button" (click)="onlineInfoOpen = !onlineInfoOpen" [attr.aria-label]="tr('Room information', 'Информация о комнате')">i</button> }
         <button class="game-settings-button" type="button" (click)="openSettings()" [attr.aria-label]="t('settings')" [attr.title]="t('settings')">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.9 7.9 0 0 0 .1-1 7.9 7.9 0 0 0-.1-1l2.1-1.6-2-3.4-2.5 1a8 8 0 0 0-1.7-1L15 3.4h-4L10.6 6a8 8 0 0 0-1.7 1L6.5 6l-2 3.4L6.6 11a7.9 7.9 0 0 0-.1 1 7.9 7.9 0 0 0 .1 1l-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 1.7 1l.4 2.6h4l.4-2.6a8 8 0 0 0 1.7-1l2.5 1 2-3.4L19.4 13ZM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" /></svg>
         </button>
-        <button class="game-exit-button" type="button" (click)="exitOfflineGame()" [attr.aria-label]="t('exitGame')" [attr.title]="t('exitGame')">
+        <button class="game-exit-button" type="button" (click)="exitCurrentGame()" [attr.aria-label]="t('exitGame')" [attr.title]="t('exitGame')">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5.8A1.8 1.8 0 0 0 4 5.8v12.4A1.8 1.8 0 0 0 5.8 20H10v-2H6V6h4V4Zm4.7 3.3-1.4 1.4 2.3 2.3H9v2h6.6l-2.3 2.3 1.4 1.4 4.7-4.7-4.7-4.7Z" /></svg>
         </button>
       </div>
+      @if (onlineInfoOpen && onlineRole === "host") { <aside class="online-room-info online-game-info"><strong>{{ tr("ROOM INFORMATION", "ИНФОРМАЦИЯ О КОМНАТЕ") }}</strong><button type="button" (click)="copyOnlineConnectionString()">{{ tr("Copy connection string", "Скопировать строку подключения") }}</button></aside> }
 
       <div class="room-chat-controls">
         @if (offlineChatOpen) {
@@ -161,7 +193,7 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5.2 3.5A.5.5 0 0 1 3 20.1V6a2 2 0 0 1 2-2Zm2 5h10V7H7v2Zm0 4h7v-2H7v2Z" /></svg>
         </button>
         @if (offlineHumanBot; as human) {
-          <button class="participant-action-button" [class.participant-action-button-pressed]="offlineActionPressedIds.has(human.id)" [class.participant-action-button-false-start]="offlineFalseStartIds.has(human.id)" type="button" [disabled]="!canPressOfflineHumanAction" (click)="triggerOfflineAction(human.id)" [attr.aria-label]="tr('Answer', 'Ответить')" [attr.title]="offlineFalseStartIds.has(human.id) ? tr('Too early — wait two seconds', 'Слишком рано — подождите две секунды') : tr('Answer', 'Ответить')"><span aria-hidden="true">!</span></button>
+          <button class="participant-action-button" [class.participant-action-button-pressed]="offlineActionPressedIds.has(human.id)" [class.participant-action-button-false-start]="offlineFalseStartIds.has(human.id)" type="button" [disabled]="!canPressOfflineHumanAction" (click)="triggerHumanOfflineAction(human.id)" [attr.aria-label]="tr('Answer', 'Ответить')" [attr.title]="offlineFalseStartIds.has(human.id) ? tr('Too early — wait two seconds', 'Слишком рано — подождите две секунды') : tr('Answer', 'Ответить')"><span aria-hidden="true">!</span></button>
         }
       </div>
 
@@ -196,10 +228,10 @@
             <div class="offline-theme-intro">@for (theme of round.themes; track theme.id; let themeIndex = $index) { <span><b>{{ themeIndex + 1 }}</b>{{ theme.name }}</span> }</div>
           } @else if (offlineGamePhase === "chooser" || offlineGamePhase === "board") {
             <div class="topic-table-wrap">
-              <table class="topic-clash-table"><caption>{{ round.name }}</caption><tbody>@for (theme of round.themes; track theme.id) { <tr><th scope="row">{{ theme.name }}</th>@for (question of theme.questions; track question.id) { <td>@if (!isOfflineQuestionAnswered(question)) { <button type="button" [disabled]="offlineGamePhase !== 'board' || (offlineBotHostActive && offlineChooserBotId !== offlineHumanBotId)" (click)="selectOfflineQuestion(question)">{{ question.value ?? "—" }}</button> }</td> }</tr> }</tbody></table>
+              <table class="topic-clash-table"><caption>{{ round.name }}</caption><tbody>@for (theme of round.themes; track theme.id) { <tr><th scope="row">{{ theme.name }}</th>@for (question of theme.questions; track question.id) { <td>@if (!isOfflineQuestionAnswered(question)) { <button type="button" [disabled]="offlineGamePhase !== 'board' || (isParticipantGameView && offlineChooserBotId !== offlineHumanBotId)" (click)="selectOnlineQuestion(question)">{{ question.value ?? "—" }}</button> }</td> }</tr> }</tbody></table>
             </div>
             @if (offlineGamePhase === "chooser") {
-              <section class="chooser-panel"><span class="eyebrow">{{ tr("FIRST MOVE", "ПЕРВЫЙ ХОД") }}</span><h2>{{ tr("Who chooses the first question?", "Кто выбирает первый вопрос?") }}</h2>@if (offlineBotHostActive) { <p>{{ tr("The bot host is choosing a player…", "Бот-ведущий выбирает участника…") }}</p> } @else { <div>@for (bot of offlineBots; track bot.id) { <button type="button" (click)="chooseOfflineChooser(bot.id)">{{ bot.name }}</button> }<button class="random-chooser" type="button" (click)="chooseRandomOfflineChooser()">⚄ {{ tr("RANDOM PLAYER", "СЛУЧАЙНЫЙ ИГРОК") }}</button></div> }</section>
+              <section class="chooser-panel"><span class="eyebrow">{{ tr("FIRST MOVE", "ПЕРВЫЙ ХОД") }}</span><h2>{{ tr("Who chooses the first question?", "Кто выбирает первый вопрос?") }}</h2>@if (isParticipantGameView) { <p>{{ tr("The host is choosing a player…", "Ведущий выбирает участника…") }}</p> } @else { <div>@for (bot of offlineBots; track bot.id) { <button type="button" (click)="chooseOfflineChooser(bot.id)">{{ bot.name }}</button> }<button class="random-chooser" type="button" (click)="chooseRandomOfflineChooser()">⚄ {{ tr("RANDOM PLAYER", "СЛУЧАЙНЫЙ ИГРОК") }}</button></div> }</section>
             } @else {
               <div class="question-selection-status"><strong>{{ offlineChooserBot?.name }}</strong><span>{{ tr("Choose a theme and value", "Выберите тему и номинал") }}</span></div>
             }
@@ -225,7 +257,7 @@
                 } @else if (offlineQuestionStage === "answering") {
                   <div class="answer-timer-copy"><span>{{ offlineRoomMode === "hotseat" ? tr("Participants answer with their assigned keys", "Участники отвечают назначенными клавишами") : tr("Press the action key to answer", "Нажмите кнопку действия, чтобы ответить") }}</span></div>
                 } @else if (offlineQuestionStage === "judging" && offlineResponderBot; as responder) {
-                  <section class="judge-panel"><span>{{ tr("Answers", "Отвечает") }}</span><h2>{{ responder.name }}</h2>@if (offlineBotHostActive) { <p>{{ tr("The bot host is waiting for the answer in chat", "Бот-ведущий ждёт ответ в чате") }}</p> } @else { <div><button class="answer-wrong" type="button" (click)="judgeOfflineAnswer(false)">× {{ tr("WRONG", "НЕВЕРНО") }}</button><button class="answer-correct" type="button" (click)="judgeOfflineAnswer(true)">✓ {{ tr("CORRECT", "ВЕРНО") }}</button></div> }</section>
+                  <section class="judge-panel"><span>{{ tr("Answers", "Отвечает") }}</span><h2>{{ responder.name }}</h2>@if (isParticipantGameView) { <p>{{ tr("The host is waiting for the answer in chat", "Ведущий ждёт ответ в чате") }}</p> } @else { <div><button class="answer-wrong" type="button" (click)="judgeOfflineAnswer(false)">× {{ tr("WRONG", "НЕВЕРНО") }}</button><button class="answer-correct" type="button" (click)="judgeOfflineAnswer(true)">✓ {{ tr("CORRECT", "ВЕРНО") }}</button></div> }</section>
                 }
               }
               <strong class="question-value-badge">{{ offlineQuestionValue }}</strong>
@@ -253,7 +285,7 @@
             @if (offlineTeamMode && offlineWinnerTeam; as winnerTeam) {
               <h1>{{ winnerTeam.name }}</h1><div class="winner-team-members"><small>{{ tr("TEAM MEMBERS", "СОСТАВ КОМАНДЫ") }}</small>@for (member of winnerTeam.members; track member.id) { <span>{{ member.name }}</span> }</div>
             } @else { <h1>{{ offlineWinnerBot ? tr("Congratulations to the winner ", "Поздравляем победителя ") + offlineWinnerBot.name : tr("No finalists", "Нет участников финала") }}</h1> }
-            <button class="winner-exit-button" type="button" (click)="exitOfflineGame()">{{ tr("EXIT ROOM", "ВЫЙТИ ИЗ КОМНАТЫ") }}</button>
+            <button class="winner-exit-button" type="button" (click)="exitCurrentGame()">{{ tr("EXIT ROOM", "ВЫЙТИ ИЗ КОМНАТЫ") }}</button>
           }
         }
         @if (offlineGamePaused) { <div class="game-pause-overlay"><span aria-hidden="true">Ⅱ</span><h2>{{ tr("GAME PAUSED", "ИГРА НА ПАУЗЕ") }}</h2></div> }
@@ -269,9 +301,9 @@
                   <div class="team-member">
                     @if (offlineRoomMessage(bot.id); as message) { <div class="room-message-bubble participant-room-message">{{ message }}</div> }
                     @if (avatarById(bot.avatarId); as avatar) {
-                      <div class="arena-avatar bot-arena-avatar score-target voice-reactive-avatar" [class.final-eliminated]="isOfflineBotEliminated(bot)" [style.background-image]="'url(' + arenaSpriteSheet(avatar, offlineBotAnimation(bot.id)) + ')'" [style.--sprite-x]="arenaSpritePosition(avatar, offlineBotAnimation(bot.id))" [style.--cycle-duration]="arenaAnimationDuration(avatar, offlineBotAnimation(bot.id))" [style.--iteration-count]="offlineBotAnimationIterations(avatar, bot.id)" [style.--voice-aura-blur]="voiceAuraBlur(bot.id)" [style.--voice-aura-opacity]="voiceAuraOpacity(bot.id)" role="button" tabindex="0" [attr.aria-label]="tr('Change team score for ', 'Изменить счёт команды: ') + team.name" (click)="openTeamScoreEditor(team.number)" (keydown.enter)="openTeamScoreEditor(team.number)"></div>
+                      <div class="arena-avatar bot-arena-avatar score-target voice-reactive-avatar" [class.final-eliminated]="isOfflineBotEliminated(bot)" [class.player-disconnected-avatar]="bot.connected === false" [style.background-image]="'url(' + arenaSpriteSheet(avatar, offlineBotAnimation(bot.id)) + ')'" [style.--sprite-x]="arenaSpritePosition(avatar, offlineBotAnimation(bot.id))" [style.--cycle-duration]="arenaAnimationDuration(avatar, offlineBotAnimation(bot.id))" [style.--iteration-count]="offlineBotAnimationIterations(avatar, bot.id)" [style.--voice-aura-blur]="voiceAuraBlur(bot.id)" [style.--voice-aura-opacity]="voiceAuraOpacity(bot.id)" role="button" tabindex="0" [attr.aria-label]="tr('Change team score for ', 'Изменить счёт команды: ') + team.name" (click)="openTeamScoreEditor(team.number)" (keydown.enter)="openTeamScoreEditor(team.number)"></div>
                     }
-                    <small class="team-member-name">{{ bot.name }}</small>
+                    <small class="team-member-name"><span>{{ bot.name }}</span>@if (bot.connected === false) { <b class="player-disconnected-label">{{ tr("DISCONNECTED", "ОТКЛЮЧИЛСЯ") }}</b> }</small>
                   </div>
                 }
               </div>
@@ -286,9 +318,9 @@
               @if (offlineRoomMessage(bot.id); as message) { <div class="room-message-bubble participant-room-message">{{ message }}</div> }
               @if (offlineGamePhase === "final-answers" && offlineFinalAnswersVisible && offlineFinalistIds.includes(bot.id)) { <div class="final-answer-bubble">{{ offlineFinalAnswer(bot.id) }}</div> }
               @if (avatarById(bot.avatarId); as avatar) {
-                <div class="arena-avatar bot-arena-avatar score-target voice-reactive-avatar" [class.final-eliminated]="isOfflineBotEliminated(bot)" [style.background-image]="'url(' + arenaSpriteSheet(avatar, offlineBotAnimation(bot.id)) + ')'" [style.--sprite-x]="arenaSpritePosition(avatar, offlineBotAnimation(bot.id))" [style.--cycle-duration]="arenaAnimationDuration(avatar, offlineBotAnimation(bot.id))" [style.--iteration-count]="offlineBotAnimationIterations(avatar, bot.id)" [style.--voice-aura-blur]="voiceAuraBlur(bot.id)" [style.--voice-aura-opacity]="voiceAuraOpacity(bot.id)" role="button" tabindex="0" [attr.aria-label]="tr('Change score for ', 'Изменить счёт: ') + bot.name" (click)="openScoreEditor(bot.id)" (keydown.enter)="openScoreEditor(bot.id)"></div>
+                <div class="arena-avatar bot-arena-avatar score-target voice-reactive-avatar" [class.final-eliminated]="isOfflineBotEliminated(bot)" [class.player-disconnected-avatar]="bot.connected === false" [style.background-image]="'url(' + arenaSpriteSheet(avatar, offlineBotAnimation(bot.id)) + ')'" [style.--sprite-x]="arenaSpritePosition(avatar, offlineBotAnimation(bot.id))" [style.--cycle-duration]="arenaAnimationDuration(avatar, offlineBotAnimation(bot.id))" [style.--iteration-count]="offlineBotAnimationIterations(avatar, bot.id)" [style.--voice-aura-blur]="voiceAuraBlur(bot.id)" [style.--voice-aura-opacity]="voiceAuraOpacity(bot.id)" role="button" tabindex="0" [attr.aria-label]="tr('Change score for ', 'Изменить счёт: ') + bot.name" (click)="openScoreEditor(bot.id)" (keydown.enter)="openScoreEditor(bot.id)"></div>
               }
-              <div class="bot-desk"><div class="desk-top"></div><button class="desk-screen" type="button" (click)="openScoreEditor(bot.id)"><strong>{{ bot.name }}</strong><span>{{ bot.score }}</span>@if (offlineRoomMode === "hotseat") { <small class="desk-answer-key">{{ keyLabel(offlineAnswerKeys.get(bot.id) ?? '') }}</small> }@if (offlineFinalWagersVisible && offlineFinalistIds.includes(bot.id)) { <small class="desk-wager">{{ tr("Wager", "Ставка") }}: {{ offlineFinalWager(bot.id) }}</small> }</button><div class="desk-leg"></div></div>
+              <div class="bot-desk"><div class="desk-top"></div><button class="desk-screen" type="button" (click)="openScoreEditor(bot.id)"><div class="desk-player-name"><strong>{{ bot.name }}</strong>@if (bot.connected === false) { <b class="player-disconnected-label">{{ tr("DISCONNECTED", "ОТКЛЮЧИЛСЯ") }}</b> }</div><span>{{ bot.score }}</span>@if (offlineRoomMode === "hotseat") { <small class="desk-answer-key">{{ keyLabel(offlineAnswerKeys.get(bot.id) ?? '') }}</small> }@if (offlineFinalWagersVisible && offlineFinalistIds.includes(bot.id)) { <small class="desk-wager">{{ tr("Wager", "Ставка") }}: {{ offlineFinalWager(bot.id) }}</small> }</button><div class="desk-leg"></div></div>
             </article>
           }
         </section>
@@ -378,6 +410,16 @@
       </header>
 
       <div class="settings-content">
+        @if (requiresSystemGstreamer) {
+          <aside class="arch-gstreamer-notice" role="note">
+            <span class="arch-gstreamer-notice-icon" aria-hidden="true">!</span>
+            <div>
+              <strong>{{ tr("MEDIA SUPPORT ON ARCH LINUX", "МЕДИА В ARCH LINUX") }}</strong>
+              <p>{{ tr("GStreamer codecs are not included in this build. Install them before playing questions with audio or video:", "Кодеки GStreamer не входят в эту сборку. Установите их перед воспроизведением вопросов с аудио или видео:") }}</p>
+              <code>sudo pacman -S --needed gst-plugins-base gst-plugins-good gst-libav</code>
+            </div>
+          </aside>
+        }
         <section class="settings-panel">
           <div class="section-heading"><span class="section-icon" aria-hidden="true">♫</span><span>{{ t("audio") }}</span></div>
 
