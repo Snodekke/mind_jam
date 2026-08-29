@@ -1550,7 +1550,7 @@ button {
   grid-column: 1 / -1;
 }
 
-.online-room-fields { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.online-room-fields { display:grid; grid-template-columns:1fr; gap:1rem; }
 .online-room-scene { position:relative; display:grid; min-height:100dvh; place-items:center; align-content:center; gap:1.2rem; overflow:hidden; padding:5rem 3rem 4rem; background:radial-gradient(circle at 50% 42%,rgba(74,47,103,.94),rgba(17,10,31,.99) 72%); }
 .online-room-toolbar { position:absolute; top:1rem; right:1rem; z-index:20; display:flex; gap:.55rem; }
 .online-info-button { display:grid; width:2.75rem; height:2.75rem; place-items:center; border:2px solid #835783; border-radius:.55rem; color:var(--yellow); background:#422454; box-shadow:0 4px 0 #12091d; font-size:1rem; font-weight:950; }
@@ -2133,10 +2133,11 @@ button.online-table:not(:disabled):hover,.online-table button:not(:disabled):hov
   background: rgba(35, 18, 49, 0.75);
 }
 
-.packs-directory > span:last-child {
+.packs-directory-copy {
   display: grid;
   min-width: 0;
   gap: 0.16rem;
+  flex: 1;
 }
 .packs-directory small {
   color: #9676a2;
@@ -2150,6 +2151,20 @@ button.online-table:not(:disabled):hover,.online-table button:not(:disabled):hov
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.packs-directory button {
+  flex: none;
+  padding: 0.58rem 0.75rem;
+  border: 1px solid var(--mint);
+  border-radius: 0.5rem;
+  color: var(--cream);
+  background: linear-gradient(#426d67, #29464a);
+  box-shadow: 0 3px 0 #14252d;
+  font-size: 0.58rem;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+}
+.packs-directory button:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+.packs-directory button:disabled { cursor: wait; opacity: 0.55; }
 
 .packs-empty {
   display: grid;

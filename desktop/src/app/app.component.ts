@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http";
-import { Component, OnDestroy, OnInit, inject } from "@angular/core";
+import { Component, NgZone, OnDestroy, OnInit, inject } from "@angular/core";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { availableMonitors, getCurrentWindow, PhysicalPosition, PhysicalSize, type Monitor } from "@tauri-apps/api/window";
@@ -25,9 +25,9 @@ interface DisplayOption { id: number; label: string; monitor: Monitor | null; }
 interface OfflineBot { id: string; name: string; avatarId: AvatarDefinition["id"]; score: number; team: number; connected?: boolean; }
 interface OfflineTeamView { number: number; name: string; members: OfflineBot[]; score: number; }
 interface OnlineRoomConfig { roomName: string; hostName: string; hostAvatarId: AvatarDefinition["id"]; maxParticipants: number; teamMode: boolean; teamCount: number; gameType: PackGameType; packFileName: string; }
-interface OnlineRoomSeat { index: number; team: number; name: string | null; connected: boolean; score: number; }
+interface OnlineRoomSeat { index: number; team: number; name: string | null; avatarId: AvatarDefinition["id"] | null; connected: boolean; score: number; }
 interface OnlineRoomSnapshot { config: OnlineRoomConfig; seats: OnlineRoomSeat[]; gameStarted: boolean; paused: boolean; gameState: unknown | null; }
-interface OnlineRoomEvent { kind: "snapshot" | "participantDisconnected" | "hostDisconnected" | "error" | "action" | "chat" | "selectQuestion"; snapshot?: OnlineRoomSnapshot; message?: string; seatIndex?: number; questionId?: string; }
+interface OnlineRoomEvent { kind: "snapshot" | "participantDisconnected" | "hostDisconnected" | "roomClosed" | "error" | "action" | "chat" | "selectQuestion" | "removeFinalTheme" | "submitFinalWager" | "submitFinalAnswer"; snapshot?: OnlineRoomSnapshot; message?: string; seatIndex?: number; questionId?: string; }
 interface HostOnlineRoomResult { connectionString: string; snapshot: OnlineRoomSnapshot; }
 interface JoinOnlineRoomResult { reconnectToken: string; seatIndex: number | null; snapshot: OnlineRoomSnapshot; gamePack: GamePack; packCacheHit: boolean; }
 interface OnlineGameState {
@@ -100,6 +100,8 @@ interface AvatarDefinition {
 interface AvatarCatalog { version: number; avatars: AvatarDefinition[]; }
 interface ThemeDefinition { id: "standart" | "school"; name: [string, string]; preview?: string; }
 
+const QUESTION_TYPING_INTERVAL_MS = 42;
+
 const translations = {
   en: {
     online: "Play online", offline: "Play offline", packs: "Packs", avatars: "Avatars", themes: "Themes",
@@ -151,6 +153,7 @@ type TranslationKey = keyof (typeof translations)["en"];
 @Component({ selector: "app-root", imports: [], templateUrl: "./app.component.html", styleUrl: "./app.component.css" })
 export class AppComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
+  private readonly ngZone = inject(NgZone);
   private readonly selectedAvatarStorageKey = "mind-jam.selected-avatar";
   private readonly selectedThemeStorageKey = "mind-jam.selected-theme";
   private readonly nicknameStorageKey = "mind-jam.nickname";
@@ -182,6 +185,8 @@ export class AppComponent implements OnInit, OnDestroy {
   private readonly offlineFalseStartTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private unlistenP2pRoom: UnlistenFn | null = null;
   private onlineGameSyncTimer: ReturnType<typeof setInterval> | null = null;
+  private onlineParticipantTypingTimer: ReturnType<typeof setInterval> | null = null;
+  private onlineParticipantTypingQuestionId: string | null = null;
   private onlineApplyingSnapshot = false;
   private readonly handleGlobalButtonClick = (event: MouseEvent) => {
     const target = event.target instanceof Element ? event.target : null;
@@ -274,6 +279,7 @@ export class AppComponent implements OnInit, OnDestroy {
   packSummaries: PackSummary[] = [];
   packsDirectory = "packs";
   isLoadingPacks = false;
+  isChangingPacksDirectory = false;
   isSavingPack = false;
   isImportingPack = false;
   packOperationFileName: string | null = null;
@@ -285,7 +291,6 @@ export class AppComponent implements OnInit, OnDestroy {
   activeRoundIndex = 0;
   expandedQuestionId: string | null = null;
   onlineRoomName = "";
-  onlineRoomPassword = "";
   onlineMaxParticipants = 6;
   onlineTeamMode = false;
   onlineTeamCount = 2;
@@ -386,6 +391,37 @@ export class AppComponent implements OnInit, OnDestroy {
   get onlineParticipantBot(): OfflineBot | undefined {
     return this.onlineSeatIndex === null ? undefined : this.offlineBots.find((bot) => bot.id === `online-seat-${this.onlineSeatIndex}`);
   }
+  private onlineFinalistForSeat(seatIndex: number): OfflineBot | undefined {
+    const participant = this.offlineBots.find((bot) => bot.id === `online-seat-${seatIndex}`);
+    if (!participant) return undefined;
+    return this.offlineTeamMode
+      ? this.offlineFinalists.find((finalist) => finalist.team === participant.team)
+      : this.offlineFinalists.find((finalist) => finalist.id === participant.id);
+  }
+  private isLocalOnlineFinalist(botId: string): boolean {
+    if (this.onlineRole !== "participant" || this.onlineSeatIndex === null) return false;
+    return this.onlineFinalistForSeat(this.onlineSeatIndex)?.id === botId;
+  }
+  canEditOfflineFinalEntry(botId: string): boolean {
+    if (this.onlineRole === "participant") return this.isLocalOnlineFinalist(botId);
+    return this.onlineRole !== "host";
+  }
+  offlineFinalWagerInputType(botId: string): "number" | "password" {
+    return this.onlineRole === "participant" && this.isLocalOnlineFinalist(botId) ? "number" : this.onlineRole ? "password" : "number";
+  }
+  offlineFinalWagerInputValue(bot: OfflineBot): number | string {
+    if (!this.onlineRole || this.isLocalOnlineFinalist(bot.id)) return this.offlineFinalWagerDrafts.get(bot.id) ?? 0;
+    if (this.onlineRole === "host" && this.offlineFinalWagerDrafts.has(bot.id)) return this.offlineFinalWagerDrafts.get(bot.id) ?? 0;
+    return this.offlineFinalWagers.has(bot.id) ? "********" : "";
+  }
+  offlineFinalAnswerInputType(botId: string): "text" | "password" {
+    return this.onlineRole === "participant" && this.isLocalOnlineFinalist(botId) ? "text" : "password";
+  }
+  offlineFinalAnswerInputValue(botId: string): string {
+    if (!this.onlineRole || this.isLocalOnlineFinalist(botId)) return this.offlineFinalAnswerDrafts.get(botId) ?? "";
+    if (this.onlineRole === "host" && this.offlineFinalAnswerDrafts.has(botId)) return this.offlineFinalAnswerDrafts.get(botId) ?? "";
+    return this.offlineFinalAnswers.has(botId) ? "********" : "";
+  }
   get isParticipantGameView(): boolean {
     return this.offlineBotHostActive || this.onlineRole === "participant";
   }
@@ -454,6 +490,12 @@ export class AppComponent implements OnInit, OnDestroy {
   get offlineFinalTurnBot(): OfflineBot | undefined {
     const finalists = this.offlineFinalists;
     return finalists.length > 0 ? finalists[this.offlineFinalTurnIndex % finalists.length] : undefined;
+  }
+  get canRemoveOfflineFinalTheme(): boolean {
+    if (this.offlineGamePaused || this.offlineGamePhase !== "final-themes" || this.offlineFinalThemes.length <= 1) return false;
+    const turnBot = this.offlineFinalTurnBot;
+    if (!turnBot) return false;
+    return this.onlineRole !== "participant" || this.isLocalOnlineFinalist(turnBot.id);
   }
   get offlineFinalTheme(): PackTheme | undefined { return this.offlineFinalThemes[0]; }
   get offlineWinnerBot(): OfflineBot | undefined { return this.offlineBots.find((bot) => bot.id === this.offlineWinnerBotId); }
@@ -649,7 +691,9 @@ export class AppComponent implements OnInit, OnDestroy {
     window.addEventListener("keydown", this.handleGameActionKey);
     window.addEventListener("keyup", this.handlePushToTalkKeyUp);
     window.addEventListener("blur", this.handlePushToTalkBlur);
-    void listen<OnlineRoomEvent>("p2p-room-event", (event) => this.handleOnlineRoomEvent(event.payload))
+    void listen<OnlineRoomEvent>("p2p-room-event", (event) => {
+      this.ngZone.run(() => this.handleOnlineRoomEvent(event.payload));
+    })
       .then((unlisten) => { this.unlistenP2pRoom = unlisten; });
   }
 
@@ -666,6 +710,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.unlistenP2pRoom?.();
     this.unlistenP2pRoom = null;
     this.stopOnlineGameSync();
+    this.clearOnlineParticipantQuestionTyping();
     void invoke("close_p2p_room").catch(() => undefined);
     this.clearOfflineGameTimers();
     this.clearOfflineMediaSource();
@@ -704,7 +749,6 @@ export class AppComponent implements OnInit, OnDestroy {
 
   async openOnlineCreate(): Promise<void> {
     this.onlineRoomName = this.tr(`${this.nickname}'s room`, `Комната ${this.nickname}`);
-    this.onlineRoomPassword = "";
     this.onlineMaxParticipants = 6;
     this.onlineTeamMode = false;
     this.onlineTeamCount = 2;
@@ -738,7 +782,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   async createOnlineRoom(): Promise<void> {
-    if (this.onlineBusy || !this.onlineRoomName.trim() || !this.onlineRoomPassword || !this.onlineSelectedPackFile) return;
+    if (this.onlineBusy || !this.onlineRoomName.trim() || !this.onlineSelectedPackFile) return;
     this.onlineBusy = true;
     this.onlineFeedback = this.tr("Creating a secure P2P room…", "Создаём защищённую P2P-комнату…");
     try {
@@ -746,7 +790,6 @@ export class AppComponent implements OnInit, OnDestroy {
       const result = await invoke<HostOnlineRoomResult>("host_p2p_room", {
         config: {
           roomName: this.onlineRoomName.trim(),
-          password: this.onlineRoomPassword,
           hostName: this.nickname,
           hostAvatarId: this.selectedAvatar?.id ?? "male",
           maxParticipants: this.onlineMaxParticipants,
@@ -780,6 +823,7 @@ export class AppComponent implements OnInit, OnDestroy {
       const result = await invoke<JoinOnlineRoomResult>("join_p2p_room", {
         connectionString: this.onlineJoinConnectionString.trim(),
         name: this.nickname,
+        avatarId: this.selectedAvatar?.id ?? "male",
         reconnectToken: localStorage.getItem(reconnectKey),
       });
       this.onlineReconnectToken = result.reconnectToken;
@@ -832,13 +876,27 @@ export class AppComponent implements OnInit, OnDestroy {
 
   async exitOnlineRoom(): Promise<void> {
     this.stopOnlineGameSync();
+    this.clearOnlineParticipantQuestionTyping();
     await invoke("close_p2p_room").catch(() => undefined);
+    this.resetLocalOnlineRoom();
+  }
+
+  private resetLocalOnlineRoom(): void {
+    if (this.offlineGamePack) this.exitOfflineGame();
     this.onlineRole = null;
     this.onlineRoomSnapshot = null;
     this.onlineDownloadedPack = null;
     this.onlineSeatIndex = null;
     this.onlineInfoOpen = false;
     this.view = "online-mode";
+  }
+
+  private async leaveRoomClosedByHost(): Promise<void> {
+    this.stopOnlineGameSync();
+    this.clearOnlineParticipantQuestionTyping();
+    this.resetLocalOnlineRoom();
+    await invoke("acknowledge_p2p_room_closed").catch(() => undefined);
+    await invoke("close_p2p_room").catch(() => undefined);
   }
 
   async startHostedOnlineGame(): Promise<void> {
@@ -852,7 +910,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.offlineBots = room.seats.map((seat) => ({
       id: `online-seat-${seat.index}`,
       name: seat.name ?? this.tr(`Empty table ${seat.index + 1}`, `Свободный стол ${seat.index + 1}`),
-      avatarId: this.randomBotAvatarId(),
+      avatarId: seat.avatarId ?? this.randomBotAvatarId(),
       score: seat.score,
       team: seat.team,
       connected: seat.name === null ? undefined : seat.connected,
@@ -878,6 +936,7 @@ export class AppComponent implements OnInit, OnDestroy {
           const bot = this.offlineBots.find((candidate) => candidate.id === `online-seat-${seat.index}`);
           if (bot) {
             if (seat.name) bot.name = seat.name;
+            if (seat.avatarId) bot.avatarId = seat.avatarId;
             bot.connected = seat.name === null ? undefined : seat.connected;
           }
         }
@@ -893,6 +952,26 @@ export class AppComponent implements OnInit, OnDestroy {
       else if (event.kind === "selectQuestion" && event.questionId && this.offlineChooserBotId === botId) {
         const question = this.offlineRound?.themes.flatMap((theme) => theme.questions).find((item) => item.id === event.questionId);
         if (question) this.selectOfflineQuestion(question);
+      } else if (event.kind === "removeFinalTheme" && event.questionId) {
+        const finalist = this.onlineFinalistForSeat(event.seatIndex);
+        if (finalist?.id === this.offlineFinalTurnBot?.id && this.offlineFinalThemes.some((theme) => theme.id === event.questionId)) {
+          this.removeOfflineFinalTheme(event.questionId);
+          void this.publishOnlineGameState();
+        }
+      } else if (event.kind === "submitFinalWager" && event.message !== undefined) {
+        const finalist = this.onlineFinalistForSeat(event.seatIndex);
+        if (finalist && this.offlineGamePhase === "final-wager" && !this.offlineFinalWagers.has(finalist.id)) {
+          this.setOfflineFinalWagerDraft(finalist, event.message);
+          this.confirmOfflineFinalWager(finalist);
+          void this.publishOnlineGameState();
+        }
+      } else if (event.kind === "submitFinalAnswer" && event.message !== undefined) {
+        const finalist = this.onlineFinalistForSeat(event.seatIndex);
+        if (finalist && this.offlineGamePhase === "final-answers" && !this.offlineFinalAnswers.has(finalist.id)) {
+          this.setOfflineFinalAnswerDraft(finalist.id, event.message);
+          this.confirmOfflineFinalAnswer(finalist.id);
+          void this.publishOnlineGameState();
+        }
       }
     }
     if (event.kind === "participantDisconnected" && this.onlineRole === "host" && this.onlineRoomSnapshot?.gameStarted) {
@@ -903,7 +982,10 @@ export class AppComponent implements OnInit, OnDestroy {
         gameState: this.buildOnlineGameState(),
         seatScores: this.onlineRoomSnapshot.seats.map((seat) => seat.score),
       }).catch(() => undefined);
+    } else if (event.kind === "roomClosed" && this.onlineRole === "participant") {
+      void this.leaveRoomClosedByHost();
     } else if (event.kind === "hostDisconnected") {
+      this.clearOnlineParticipantQuestionTyping();
       this.onlineFeedback = this.tr("Connection to the host was lost. You can reconnect with the same connection string.", "Связь с ведущим потеряна. Можно переподключиться по той же строке подключения.");
       this.view = "online-room";
     } else if (event.kind === "error" && event.message) {
@@ -933,6 +1015,12 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private buildOnlineGameState(): OnlineGameState | null {
     if (!this.offlineGamePack) return null;
+    const finalWagers = this.onlineRole === "host"
+      ? [...this.offlineFinalWagers.keys()].map((botId): [string, number] => [botId, 0])
+      : [...this.offlineFinalWagers];
+    const finalAnswers = this.onlineRole === "host" && !this.offlineFinalAnswersVisible
+      ? [...this.offlineFinalAnswers.keys()].map((botId): [string, string] => [botId, ""])
+      : [...this.offlineFinalAnswers];
     return {
       bots: this.offlineBots, teamMode: this.offlineTeamMode,
       teamCount: this.offlineTeamCount, gameStarted: this.offlineGameStarted,
@@ -948,8 +1036,8 @@ export class AppComponent implements OnInit, OnDestroy {
       finalThemeIds: this.offlineFinalThemes.map((theme) => theme.id), finalistIds: this.offlineFinalistIds,
       finalTurnIndex: this.offlineFinalTurnIndex, finalSeconds: this.offlineFinalSeconds,
       finalWagersVisible: this.offlineFinalWagersVisible, finalAnswersVisible: this.offlineFinalAnswersVisible,
-      isFinalQuestion: this.offlineIsFinalQuestion, finalWagers: [...this.offlineFinalWagers],
-      finalAnswers: [...this.offlineFinalAnswers], finalJudgements: [...this.offlineFinalJudgements],
+      isFinalQuestion: this.offlineIsFinalQuestion, finalWagers,
+      finalAnswers, finalJudgements: [...this.offlineFinalJudgements],
       winnerBotId: this.offlineWinnerBotId,
     };
   }
@@ -972,8 +1060,10 @@ export class AppComponent implements OnInit, OnDestroy {
     const keepSettingsOpen = this.view === "settings" && this.settingsReturnView === "offline-game";
     this.onlineApplyingSnapshot = true;
     this.clearOfflineGameTimers();
-    const mediaKeyBefore = `${this.offlineSelectedQuestion?.id ?? ""}:${this.offlineQuestionMediaVisible}`;
+    const selectedQuestionIdBefore = this.offlineSelectedQuestion?.id ?? null;
+    const mediaKeyBefore = `${selectedQuestionIdBefore ?? ""}:${this.offlineQuestionMediaVisible}`;
     const mediaStageBefore = this.offlineQuestionStage;
+    const gamePhaseBefore = this.offlineGamePhase;
     const wasPaused = this.offlineGamePaused;
     this.offlineGamePack = this.onlineDownloadedPack;
     this.offlineBots = state.bots;
@@ -984,12 +1074,29 @@ export class AppComponent implements OnInit, OnDestroy {
     this.offlineGameStarted = state.gameStarted;
     this.offlineGamePaused = state.paused;
     this.offlineGamePhase = state.phase;
+    if (gamePhaseBefore !== state.phase && state.phase === "final-wager") this.offlineFinalWagerDrafts.clear();
+    if (gamePhaseBefore !== state.phase && state.phase === "final-answers") this.offlineFinalAnswerDrafts.clear();
     this.offlineRoundIndex = state.roundIndex;
     this.offlineChooserBotId = state.chooserBotId;
     this.offlineSelectionSeconds = state.selectionSeconds;
     this.offlineSelectedQuestion = this.findOnlinePackQuestion(state.selectedQuestionId);
     this.offlineQuestionStage = state.questionStage;
-    this.offlineTypedQuestionText = state.typedQuestionText;
+    const selectedQuestionId = this.offlineSelectedQuestion?.id ?? null;
+    if (this.onlineParticipantTypingQuestionId && this.onlineParticipantTypingQuestionId !== selectedQuestionId) {
+      this.clearOnlineParticipantQuestionTyping();
+    }
+    const canStartLocalQuestionTyping = this.offlineSelectedQuestion
+      && !["cat-announcement", "cat-recipient", "cat-transfer", "answer-reveal"].includes(state.questionStage);
+    if (!this.offlineSelectedQuestion) {
+      this.clearOnlineParticipantQuestionTyping();
+      this.offlineTypedQuestionText = "";
+    } else if (canStartLocalQuestionTyping && this.onlineParticipantTypingQuestionId !== selectedQuestionId) {
+      this.startOnlineParticipantQuestionTyping(this.offlineSelectedQuestion);
+    } else if (this.onlineParticipantTypingQuestionId === selectedQuestionId) {
+      if (!this.onlineParticipantTypingTimer) this.offlineTypedQuestionText = this.offlineSelectedQuestion.text.trim();
+    } else {
+      this.offlineTypedQuestionText = "";
+    }
     this.offlineQuestionMediaVisible = state.questionMediaVisible;
     this.offlineAnswerSeconds = state.answerSeconds;
     this.offlineResponderBotId = state.responderBotId;
@@ -1028,6 +1135,39 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     if (!keepSettingsOpen) this.view = "offline-game";
     this.onlineApplyingSnapshot = false;
+  }
+
+  private startOnlineParticipantQuestionTyping(question: PackQuestion): void {
+    this.clearOnlineParticipantQuestionTyping();
+    const questionId = question.id;
+    const text = question.text.trim();
+    let index = 0;
+    this.onlineParticipantTypingQuestionId = questionId;
+    this.offlineTypedQuestionText = "";
+    const revealNext = () => {
+      if (this.offlineSelectedQuestion?.id !== questionId) {
+        this.clearOnlineParticipantQuestionTyping();
+        return;
+      }
+      if (this.offlineGamePaused) return;
+      index += 1;
+      this.offlineTypedQuestionText = text.slice(0, index);
+      if (index >= text.length && this.onlineParticipantTypingTimer) {
+        clearInterval(this.onlineParticipantTypingTimer);
+        this.onlineParticipantTypingTimer = null;
+      }
+    };
+    if (!text) return;
+    revealNext();
+    if (index < text.length) {
+      this.onlineParticipantTypingTimer = setInterval(revealNext, QUESTION_TYPING_INTERVAL_MS);
+    }
+  }
+
+  private clearOnlineParticipantQuestionTyping(): void {
+    if (this.onlineParticipantTypingTimer) clearInterval(this.onlineParticipantTypingTimer);
+    this.onlineParticipantTypingTimer = null;
+    this.onlineParticipantTypingQuestionId = null;
   }
 
   private replaceMap<K, V>(target: Map<K, V>, entries: [K, V][]): void {
@@ -1535,10 +1675,9 @@ export class AppComponent implements OnInit, OnDestroy {
     else this.triggerOfflineAction(botId);
   }
 
-  exitCurrentGame(): void {
+  async exitCurrentGame(): Promise<void> {
     if (this.onlineRole) {
-      this.exitOfflineGame();
-      void this.exitOnlineRoom();
+      await this.exitOnlineRoom();
     } else {
       this.exitOfflineGame();
     }
@@ -1720,8 +1859,11 @@ export class AppComponent implements OnInit, OnDestroy {
         else this.startOfflineAnswerWindow();
       }
     };
-    if (index === 0) revealNext();
-    if (index < text.length) this.offlineTypeTimer = setInterval(revealNext, 42);
+    if (index === 0) {
+      revealNext();
+      if (this.onlineRole === "host") void this.publishOnlineGameState();
+    }
+    if (index < text.length) this.offlineTypeTimer = setInterval(revealNext, QUESTION_TYPING_INTERVAL_MS);
   }
 
   private beginOfflineQuestionPresentation(): void {
@@ -1903,9 +2045,15 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   removeOfflineFinalTheme(themeId: string): void {
-    if (this.offlineGamePaused || this.offlineGamePhase !== "final-themes" || this.offlineFinalThemes.length <= 1) return;
+    if (!this.canRemoveOfflineFinalTheme) return;
     const remover = this.offlineFinalTurnBot;
     if (!remover) return;
+    if (this.onlineRole === "participant") {
+      void invoke("send_p2p_final_theme_removal", { themeId }).catch(() => {
+        this.onlineFeedback = this.tr("Unable to remove the final theme", "Не удалось убрать тему финала");
+      });
+      return;
+    }
     this.clearOfflineBotTimer();
     this.offlineFinalThemes = this.offlineFinalThemes.filter((theme) => theme.id !== themeId);
     this.playOfflineBotAnimation(remover.id, "point", 900);
@@ -1918,6 +2066,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   setOfflineFinalWagerDraft(bot: OfflineBot, rawValue: string): void {
+    if (this.onlineRole === "participant" && !this.isLocalOnlineFinalist(bot.id)) return;
     const value = Math.max(0, Math.min(bot.score, Math.round(Number(rawValue) || 0)));
     this.offlineFinalWagerDrafts.set(bot.id, value);
   }
@@ -1925,18 +2074,37 @@ export class AppComponent implements OnInit, OnDestroy {
   confirmOfflineFinalWager(bot: OfflineBot): void {
     if (this.offlineGamePaused || this.offlineGamePhase !== "final-wager" || this.offlineFinalWagers.has(bot.id)) return;
     const wager = Math.max(0, Math.min(bot.score, this.offlineFinalWagerDrafts.get(bot.id) ?? 0));
+    if (this.onlineRole === "participant") {
+      if (!this.isLocalOnlineFinalist(bot.id)) return;
+      this.offlineFinalWagers.set(bot.id, wager);
+      void invoke("send_p2p_final_wager", { wager }).catch(() => {
+        this.offlineFinalWagers.delete(bot.id);
+        this.onlineFeedback = this.tr("Unable to submit the wager", "Не удалось отправить ставку");
+      });
+      return;
+    }
     this.offlineFinalWagers.set(bot.id, wager);
     if (this.offlineFinalWagers.size >= this.offlineFinalists.length) this.finishOfflineFinalWagers();
     else this.scheduleOfflineBotWager();
   }
 
   setOfflineFinalAnswerDraft(botId: string, value: string): void {
+    if (this.onlineRole === "participant" && !this.isLocalOnlineFinalist(botId)) return;
     this.offlineFinalAnswerDrafts.set(botId, value.slice(0, 240));
   }
 
   confirmOfflineFinalAnswer(botId: string): void {
     if (this.offlineGamePaused || this.offlineGamePhase !== "final-answers" || this.offlineFinalAnswers.has(botId)) return;
     const answer = (this.offlineFinalAnswerDrafts.get(botId) ?? "").trim();
+    if (this.onlineRole === "participant") {
+      if (!this.isLocalOnlineFinalist(botId)) return;
+      this.offlineFinalAnswers.set(botId, answer || "—");
+      void invoke("send_p2p_final_answer", { answer }).catch(() => {
+        this.offlineFinalAnswers.delete(botId);
+        this.onlineFeedback = this.tr("Unable to submit the final answer", "Не удалось отправить ответ финала");
+      });
+      return;
+    }
     this.offlineFinalAnswers.set(botId, answer || "—");
     if (this.offlineFinalAnswers.size >= this.offlineFinalists.length) this.finishOfflineFinalAnswers();
     else this.scheduleOfflineBotFinalAnswer();
@@ -2340,7 +2508,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   async importPackFile(): Promise<void> {
-    if (this.isImportingPack || this.packOperationFileName) return;
+    if (this.isImportingPack || this.isChangingPacksDirectory || this.packOperationFileName) return;
     this.packFeedback = "";
     const { open } = await import("@tauri-apps/plugin-dialog");
     const sourcePath = await open({
@@ -2365,7 +2533,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   async exportPack(summary: PackSummary): Promise<void> {
-    if (this.isImportingPack || this.packOperationFileName) return;
+    if (this.isImportingPack || this.isChangingPacksDirectory || this.packOperationFileName) return;
     this.packFeedback = "";
     const { open } = await import("@tauri-apps/plugin-dialog");
     const directoryPath = await open({
@@ -2386,7 +2554,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   async deletePack(summary: PackSummary): Promise<void> {
-    if (this.isImportingPack || this.packOperationFileName) return;
+    if (this.isImportingPack || this.isChangingPacksDirectory || this.packOperationFileName) return;
     const { confirm } = await import("@tauri-apps/plugin-dialog");
     const approved = await confirm(
       this.tr(`Delete “${summary.name}”? This cannot be undone.`, `Удалить «${summary.name}»? Это действие нельзя отменить.`),
@@ -2403,6 +2571,37 @@ export class AppComponent implements OnInit, OnDestroy {
       this.packFeedback = this.tr("Unable to delete this pack", "Не удалось удалить пак");
     } finally {
       this.packOperationFileName = null;
+    }
+  }
+
+  async changePacksDirectory(): Promise<void> {
+    if (this.isLoadingPacks || this.isImportingPack || this.isChangingPacksDirectory || this.packOperationFileName) return;
+    this.packFeedback = "";
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const directoryPath = await open({
+      multiple: false,
+      directory: true,
+      title: this.tr("Choose the packs folder", "Выберите папку паков"),
+    });
+    if (!directoryPath) return;
+    this.isChangingPacksDirectory = true;
+    try {
+      const listing = await this.packStorage.setDirectory(directoryPath);
+      this.packSummaries = listing.packs;
+      this.packsDirectory = listing.directory;
+      this.selectedOfflinePackFile = "";
+      this.onlineSelectedPackFile = "";
+      this.packFeedback = this.tr(
+        "Packs folder changed. Existing files were left in their previous folder.",
+        "Папка паков изменена. Существующие файлы остались в прежней папке.",
+      );
+    } catch {
+      this.packFeedback = this.tr(
+        "Unable to use this folder. Check that it exists and is writable.",
+        "Не удалось использовать эту папку. Проверьте, что она существует и доступна для записи.",
+      );
+    } finally {
+      this.isChangingPacksDirectory = false;
     }
   }
 

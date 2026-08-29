@@ -14,9 +14,9 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::{AppHandle, Emitter, Manager, State};
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::{Mutex as AsyncMutex, Notify};
 
-const ROOM_ALPN: &[u8] = b"mind-jam/room/1";
+const ROOM_ALPN: &[u8] = b"mind-jam/room/4";
 const MAX_MESSAGE_SIZE: usize = 256 * 1024 * 1024;
 const PACK_CACHE_TTL_SECS: u64 = 24 * 60 * 60;
 static NEXT_PEER_ID: AtomicU64 = AtomicU64::new(1);
@@ -25,7 +25,6 @@ static NEXT_PEER_ID: AtomicU64 = AtomicU64::new(1);
 #[serde(rename_all = "camelCase")]
 pub struct RoomConfigInput {
     pub room_name: String,
-    pub password: String,
     pub host_name: String,
     pub host_avatar_id: String,
     pub max_participants: usize,
@@ -70,6 +69,7 @@ pub struct RoomSeat {
     pub index: usize,
     pub team: usize,
     pub name: Option<String>,
+    pub avatar_id: Option<String>,
     pub connected: bool,
     pub score: i64,
     #[serde(skip)]
@@ -108,7 +108,6 @@ pub struct JoinRoomResult {
 struct ConnectionTicket {
     version: u8,
     address: EndpointAddr,
-    password: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -125,8 +124,8 @@ struct RoomEvent {
 #[serde(tag = "type", rename_all = "camelCase")]
 enum ClientMessage {
     Hello {
-        password: String,
         name: String,
+        avatar_id: String,
         reconnect_token: Option<String>,
         has_cached_pack: bool,
     },
@@ -140,6 +139,16 @@ enum ClientMessage {
     SelectQuestion {
         question_id: String,
     },
+    RemoveFinalTheme {
+        theme_id: String,
+    },
+    SubmitFinalWager {
+        wager: i64,
+    },
+    SubmitFinalAnswer {
+        answer: String,
+    },
+    RoomClosedAck,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -157,6 +166,7 @@ enum HostMessage {
     Error {
         message: String,
     },
+    RoomClosed,
 }
 
 type SharedSend = Arc<AsyncMutex<iroh::endpoint::SendStream>>;
@@ -164,7 +174,9 @@ type SharedSend = Arc<AsyncMutex<iroh::endpoint::SendStream>>;
 struct ConnectedPeer {
     reconnect_token: String,
     name: String,
+    avatar_id: String,
     send: SharedSend,
+    room_closed_ack: Arc<Notify>,
 }
 
 struct HostedRoom {
@@ -204,11 +216,17 @@ fn peer_token(prefix: &str) -> String {
     format!("{prefix}-{millis:x}-{number:x}")
 }
 
-fn encode_connection_string(address: &EndpointAddr, password: &str) -> Result<String, String> {
+fn validate_avatar_id(avatar_id: &str) -> Result<(), String> {
+    match avatar_id {
+        "male" | "female" | "robot" | "schoolboy" | "schoolgirl" => Ok(()),
+        _ => Err("Invalid avatar".to_string()),
+    }
+}
+
+fn encode_connection_string(address: &EndpointAddr) -> Result<String, String> {
     let bytes = serde_json::to_vec(&ConnectionTicket {
-        version: 1,
+        version: 4,
         address: address.clone(),
-        password: password.to_string(),
     })
     .map_err(|error| error.to_string())?;
     Ok(format!("mindjam://{}", URL_SAFE_NO_PAD.encode(bytes)))
@@ -224,7 +242,7 @@ fn decode_connection_string(value: &str) -> Result<ConnectionTicket, String> {
         .map_err(|_| "Invalid room address".to_string())?;
     let ticket: ConnectionTicket =
         serde_json::from_slice(&bytes).map_err(|_| "Invalid connection string".to_string())?;
-    if ticket.version != 1 || ticket.password.is_empty() {
+    if ticket.version != 4 {
         return Err("Invalid connection string".to_string());
     }
     Ok(ticket)
@@ -373,31 +391,21 @@ async fn handle_host_connection(
         .map_err(|error| error.to_string())?;
     let hello = receive_message::<ClientMessage>(&mut recv).await?;
     let ClientMessage::Hello {
-        password,
         name,
+        avatar_id,
         reconnect_token,
         has_cached_pack,
     } = hello
     else {
         return Err("Expected room hello".to_string());
     };
+    validate_avatar_id(&avatar_id)?;
     let send = Arc::new(AsyncMutex::new(send));
     let peer_id = peer_token("peer");
     let reconnect_token = reconnect_token.unwrap_or_else(|| peer_token("reconnect"));
 
     let (snapshot, seat_index, pack, pack_transfer) = {
         let mut room = room.lock().await;
-        if password != room.config.password {
-            drop(room);
-            send_message(
-                &send,
-                &HostMessage::Error {
-                    message: "Wrong room password".into(),
-                },
-            )
-            .await?;
-            return Err("Wrong room password".to_string());
-        }
         if let Some(seat) = room
             .seats
             .iter_mut()
@@ -405,6 +413,7 @@ async fn handle_host_connection(
         {
             seat.connected = true;
             seat.name = Some(name.clone());
+            seat.avatar_id = Some(avatar_id.clone());
         }
         let seat_index = room
             .seats
@@ -439,7 +448,9 @@ async fn handle_host_connection(
         ConnectedPeer {
             reconnect_token,
             name,
+            avatar_id,
             send: send.clone(),
+            room_closed_ack: Arc::new(Notify::new()),
         },
     );
     broadcast_room(&room, &app).await;
@@ -455,6 +466,7 @@ async fn handle_host_connection(
                     };
                     let token = peer.reconnect_token.clone();
                     let name = peer.name.clone();
+                    let avatar_id = peer.avatar_id.clone();
                     if seat_index >= room.seats.len() {
                         error = Some("Invalid table".to_string());
                     } else if room.seats[seat_index].reconnect_token.is_some()
@@ -467,12 +479,14 @@ async fn handle_host_connection(
                                 seat.reconnect_token = None;
                                 seat.connected = false;
                                 seat.name = None;
+                                seat.avatar_id = None;
                             }
                         }
                         let seat = &mut room.seats[seat_index];
                         seat.reconnect_token = Some(token);
                         seat.connected = true;
                         seat.name = Some(name);
+                        seat.avatar_id = Some(avatar_id);
                     }
                 }
                 if let Some(message) = error {
@@ -497,6 +511,50 @@ async fn handle_host_connection(
                     Some(question_id),
                 )
                 .await;
+            }
+            Ok(ClientMessage::RemoveFinalTheme { theme_id }) => {
+                emit_peer_event(
+                    &room,
+                    &peer_id,
+                    &app,
+                    "removeFinalTheme",
+                    None,
+                    Some(theme_id),
+                )
+                .await;
+            }
+            Ok(ClientMessage::SubmitFinalWager { wager }) => {
+                emit_peer_event(
+                    &room,
+                    &peer_id,
+                    &app,
+                    "submitFinalWager",
+                    Some(wager.to_string()),
+                    None,
+                )
+                .await;
+            }
+            Ok(ClientMessage::SubmitFinalAnswer { answer }) => {
+                emit_peer_event(
+                    &room,
+                    &peer_id,
+                    &app,
+                    "submitFinalAnswer",
+                    Some(answer),
+                    None,
+                )
+                .await;
+            }
+            Ok(ClientMessage::RoomClosedAck) => {
+                let ack = room
+                    .lock()
+                    .await
+                    .peers
+                    .get(&peer_id)
+                    .map(|peer| peer.room_closed_ack.clone());
+                if let Some(ack) = ack {
+                    ack.notify_one();
+                }
             }
             Ok(ClientMessage::Hello { .. }) => {}
             Err(_) => break,
@@ -575,7 +633,6 @@ pub async fn host_p2p_room(
     runtime: State<'_, Mutex<P2pRuntime>>,
 ) -> Result<HostRoomResult, String> {
     if config.room_name.trim().is_empty()
-        || config.password.is_empty()
         || config.host_name.trim().is_empty()
         || config.host_avatar_id.trim().is_empty()
         || !(2..=12).contains(&config.max_participants)
@@ -591,7 +648,7 @@ pub async fn host_p2p_room(
         .map_err(|error| error.to_string())?;
     let _ = tokio::time::timeout(std::time::Duration::from_secs(8), endpoint.online()).await;
     let address = endpoint.addr();
-    let connection_string = encode_connection_string(&address, &config.password)?;
+    let connection_string = encode_connection_string(&address)?;
     let seats = (0..config.max_participants)
         .map(|index| RoomSeat {
             index,
@@ -601,6 +658,7 @@ pub async fn host_p2p_room(
                 index + 1
             },
             name: None,
+            avatar_id: None,
             connected: false,
             score: 0,
             reconnect_token: None,
@@ -653,10 +711,12 @@ pub async fn host_p2p_room(
 pub async fn join_p2p_room(
     connection_string: String,
     name: String,
+    avatar_id: String,
     reconnect_token: Option<String>,
     app: AppHandle,
     runtime: State<'_, Mutex<P2pRuntime>>,
 ) -> Result<JoinRoomResult, String> {
+    validate_avatar_id(&avatar_id)?;
     let ticket = decode_connection_string(&connection_string)?;
     let cached_pack = load_cached_pack(&app, &connection_string);
     let has_cached_pack = cached_pack.is_some();
@@ -675,8 +735,8 @@ pub async fn join_p2p_room(
     send_message(
         &send,
         &ClientMessage::Hello {
-            password: ticket.password,
             name,
+            avatar_id,
             reconnect_token,
             has_cached_pack,
         },
@@ -730,6 +790,19 @@ pub async fn join_p2p_room(
                             question_id: None,
                         },
                     );
+                }
+                Ok(HostMessage::RoomClosed) => {
+                    let _ = reader_app.emit(
+                        "p2p-room-event",
+                        RoomEvent {
+                            kind: "roomClosed".into(),
+                            snapshot: None,
+                            message: None,
+                            seat_index: None,
+                            question_id: None,
+                        },
+                    );
+                    break;
                 }
                 Ok(HostMessage::Welcome { .. }) => {}
                 Err(_) => {
@@ -825,6 +898,49 @@ pub async fn send_p2p_question_selection(
 }
 
 #[tauri::command]
+pub async fn send_p2p_final_theme_removal(
+    theme_id: String,
+    runtime: State<'_, Mutex<P2pRuntime>>,
+) -> Result<(), String> {
+    send_client_message(runtime, ClientMessage::RemoveFinalTheme { theme_id }).await
+}
+
+#[tauri::command]
+pub async fn send_p2p_final_wager(
+    wager: i64,
+    runtime: State<'_, Mutex<P2pRuntime>>,
+) -> Result<(), String> {
+    send_client_message(
+        runtime,
+        ClientMessage::SubmitFinalWager {
+            wager: wager.clamp(0, 999_999),
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn send_p2p_final_answer(
+    answer: String,
+    runtime: State<'_, Mutex<P2pRuntime>>,
+) -> Result<(), String> {
+    send_client_message(
+        runtime,
+        ClientMessage::SubmitFinalAnswer {
+            answer: answer.trim().chars().take(240).collect(),
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn acknowledge_p2p_room_closed(
+    runtime: State<'_, Mutex<P2pRuntime>>,
+) -> Result<(), String> {
+    send_client_message(runtime, ClientMessage::RoomClosedAck).await
+}
+
+#[tauri::command]
 pub async fn update_hosted_room(
     game_started: bool,
     paused: bool,
@@ -854,14 +970,33 @@ pub async fn update_hosted_room(
 
 #[tauri::command]
 pub async fn close_p2p_room(runtime: State<'_, Mutex<P2pRuntime>>) -> Result<(), String> {
-    let endpoint = {
+    let (endpoint, hosted_room) = {
         let mut state = runtime
             .lock()
             .map_err(|_| "P2P state is unavailable".to_string())?;
-        state.hosted_room = None;
+        let hosted_room = state.hosted_room.take();
         state.client_send = None;
-        state.endpoint.take()
+        (state.endpoint.take(), hosted_room)
     };
+    if let Some(room) = hosted_room {
+        let peers = room
+            .lock()
+            .await
+            .peers
+            .values()
+            .map(|peer| (peer.send.clone(), peer.room_closed_ack.clone()))
+            .collect::<Vec<_>>();
+        for (send, _) in &peers {
+            let _ = send_message(send, &HostMessage::RoomClosed).await;
+        }
+        for (_, ack) in &peers {
+            let _ = tokio::time::timeout(std::time::Duration::from_secs(2), ack.notified()).await;
+        }
+        for (send, _) in &peers {
+            let mut send = send.lock().await;
+            let _ = send.finish();
+        }
+    }
     if let Some(endpoint) = endpoint {
         endpoint.close().await;
     }

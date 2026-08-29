@@ -4,16 +4,18 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     FromSample, Sample, SampleFormat, SizedSample, Stream,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
     fs,
+    fs::OpenOptions,
     path::PathBuf,
     sync::{
         atomic::{AtomicU32, Ordering},
         Arc, Mutex,
     },
 };
+use tauri::{AppHandle, Manager, State};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -95,6 +97,16 @@ struct PacksListing {
     packs: Vec<PackSummary>,
 }
 
+#[derive(Serialize, Deserialize)]
+struct PackStorageConfig {
+    directory: PathBuf,
+}
+
+struct PackStorageState {
+    directory: Mutex<PathBuf>,
+    config_path: PathBuf,
+}
+
 fn game_root() -> Result<PathBuf, String> {
     let current = std::env::current_dir().map_err(|error| error.to_string())?;
 
@@ -111,10 +123,60 @@ fn game_root() -> Result<PathBuf, String> {
         .ok_or_else(|| "Unable to locate the game directory".to_string())
 }
 
-fn packs_directory() -> Result<PathBuf, String> {
-    let directory = game_root()?.join("packs");
+fn default_packs_directory() -> Result<PathBuf, String> {
+    Ok(game_root()?.join("packs"))
+}
+
+fn pack_storage_state(app: &AppHandle) -> Result<PackStorageState, String> {
+    let config_directory = app
+        .path()
+        .app_config_dir()
+        .map_err(|error| error.to_string())?;
+    let config_path = config_directory.join("pack-storage.json");
+    let configured_directory = fs::read_to_string(&config_path)
+        .ok()
+        .and_then(|content| serde_json::from_str::<PackStorageConfig>(&content).ok())
+        .map(|config| config.directory)
+        .unwrap_or(default_packs_directory()?);
+    let directory = if fs::create_dir_all(&configured_directory).is_ok() {
+        configured_directory
+    } else {
+        let fallback = default_packs_directory()?;
+        fs::create_dir_all(&fallback).map_err(|error| error.to_string())?;
+        fallback
+    };
+    Ok(PackStorageState {
+        directory: Mutex::new(directory),
+        config_path,
+    })
+}
+
+fn packs_directory(state: &PackStorageState) -> Result<PathBuf, String> {
+    let directory = state
+        .directory
+        .lock()
+        .map_err(|_| "Pack storage is unavailable".to_string())?
+        .clone();
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
     Ok(directory)
+}
+
+fn save_pack_storage_config(state: &PackStorageState, directory: &PathBuf) -> Result<(), String> {
+    let config_directory = state
+        .config_path
+        .parent()
+        .ok_or_else(|| "Invalid pack storage configuration path".to_string())?;
+    fs::create_dir_all(config_directory).map_err(|error| error.to_string())?;
+    let temporary = state.config_path.with_extension("json.tmp");
+    let content = serde_json::to_string_pretty(&PackStorageConfig {
+        directory: directory.clone(),
+    })
+    .map_err(|error| error.to_string())?;
+    fs::write(&temporary, content).map_err(|error| error.to_string())?;
+    if state.config_path.exists() {
+        fs::remove_file(&state.config_path).map_err(|error| error.to_string())?;
+    }
+    fs::rename(temporary, &state.config_path).map_err(|error| error.to_string())
 }
 
 fn safe_file_name(file_name: &str) -> Result<&str, String> {
@@ -173,9 +235,7 @@ fn validated_pack_id(pack: &Value) -> Result<&str, String> {
     Ok(id)
 }
 
-#[tauri::command]
-fn list_packs() -> Result<PacksListing, String> {
-    let directory = packs_directory()?;
+fn list_packs_in(directory: PathBuf) -> Result<PacksListing, String> {
     let mut packs = Vec::new();
 
     for entry in fs::read_dir(&directory).map_err(|error| error.to_string())? {
@@ -207,19 +267,51 @@ fn list_packs() -> Result<PacksListing, String> {
 }
 
 #[tauri::command]
-fn load_pack(file_name: String) -> Result<Value, String> {
+fn list_packs(state: State<'_, PackStorageState>) -> Result<PacksListing, String> {
+    list_packs_in(packs_directory(&state)?)
+}
+
+#[tauri::command]
+fn set_packs_directory(
+    directory_path: String,
+    state: State<'_, PackStorageState>,
+) -> Result<PacksListing, String> {
+    let requested = PathBuf::from(directory_path);
+    if !requested.is_dir() {
+        return Err("Select an existing directory".to_string());
+    }
+    let directory = requested
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
+    let write_test_path = directory.join(format!(".mind-jam-write-test-{}", std::process::id()));
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&write_test_path)
+        .map_err(|_| "The selected directory is not writable".to_string())?;
+    fs::remove_file(&write_test_path).map_err(|error| error.to_string())?;
+
+    let listing = list_packs_in(directory.clone())?;
+    save_pack_storage_config(&state, &directory)?;
+    *state
+        .directory
+        .lock()
+        .map_err(|_| "Pack storage is unavailable".to_string())? = directory.clone();
+    Ok(listing)
+}
+
+#[tauri::command]
+fn load_pack(file_name: String, state: State<'_, PackStorageState>) -> Result<Value, String> {
     let file_name = safe_file_name(&file_name)?;
-    let content = fs::read_to_string(packs_directory()?.join(file_name))
+    let content = fs::read_to_string(packs_directory(&state)?.join(file_name))
         .map_err(|error| error.to_string())?;
     serde_json::from_str(&content).map_err(|error| error.to_string())
 }
 
-#[tauri::command]
-fn save_pack(pack: Value) -> Result<PackSummary, String> {
+fn save_pack_in(pack: Value, directory: PathBuf) -> Result<PackSummary, String> {
     let id = validated_pack_id(&pack)?;
     summary_from_value(&pack, format!("{id}.json"))?;
 
-    let directory = packs_directory()?;
     let file_name = format!("{id}.json");
     let destination = directory.join(&file_name);
     let temporary = directory.join(format!(".{id}.tmp"));
@@ -234,7 +326,15 @@ fn save_pack(pack: Value) -> Result<PackSummary, String> {
 }
 
 #[tauri::command]
-fn import_pack(source_path: String) -> Result<PackSummary, String> {
+fn save_pack(pack: Value, state: State<'_, PackStorageState>) -> Result<PackSummary, String> {
+    save_pack_in(pack, packs_directory(&state)?)
+}
+
+#[tauri::command]
+fn import_pack(
+    source_path: String,
+    state: State<'_, PackStorageState>,
+) -> Result<PackSummary, String> {
     let source = PathBuf::from(source_path);
     if !source.is_file()
         || source.extension().and_then(|extension| extension.to_str()) != Some("json")
@@ -255,7 +355,7 @@ fn import_pack(source_path: String) -> Result<PackSummary, String> {
         return Err("Unsupported Mind Jam pack structure".to_string());
     }
 
-    let directory = packs_directory()?;
+    let directory = packs_directory(&state)?;
     if directory.join(format!("{original_id}.json")).exists() {
         let base = original_id.chars().take(80).collect::<String>();
         let mut number = 2_u32;
@@ -269,13 +369,17 @@ fn import_pack(source_path: String) -> Result<PackSummary, String> {
         }
     }
 
-    save_pack(pack)
+    save_pack_in(pack, directory)
 }
 
 #[tauri::command]
-fn export_pack(file_name: String, directory_path: String) -> Result<String, String> {
+fn export_pack(
+    file_name: String,
+    directory_path: String,
+    state: State<'_, PackStorageState>,
+) -> Result<String, String> {
     let file_name = safe_file_name(&file_name)?;
-    let source = packs_directory()?.join(file_name);
+    let source = packs_directory(&state)?.join(file_name);
     if !source.is_file() {
         return Err("Pack file does not exist".to_string());
     }
@@ -300,9 +404,9 @@ fn export_pack(file_name: String, directory_path: String) -> Result<String, Stri
 }
 
 #[tauri::command]
-fn delete_pack(file_name: String) -> Result<(), String> {
+fn delete_pack(file_name: String, state: State<'_, PackStorageState>) -> Result<(), String> {
     let file_name = safe_file_name(&file_name)?;
-    let path = packs_directory()?.join(file_name);
+    let path = packs_directory(&state)?.join(file_name);
     if !path.is_file() {
         return Err("Pack file does not exist".to_string());
     }
@@ -560,15 +664,20 @@ fn exit_app(app: tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let _ = packs_directory();
     tauri::Builder::default()
         .manage(Mutex::new(NativeAudioState::default()))
         .manage(Mutex::new(p2p::P2pRuntime::default()))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            let state = pack_storage_state(&app.handle()).map_err(std::io::Error::other)?;
+            app.manage(state);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_build_info,
             list_packs,
+            set_packs_directory,
             load_pack,
             save_pack,
             import_pack,
@@ -580,6 +689,10 @@ pub fn run() {
             p2p::send_p2p_action,
             p2p::send_p2p_chat,
             p2p::send_p2p_question_selection,
+            p2p::send_p2p_final_theme_removal,
+            p2p::send_p2p_final_wager,
+            p2p::send_p2p_final_answer,
+            p2p::acknowledge_p2p_room_closed,
             p2p::update_hosted_room,
             p2p::close_p2p_room,
             list_audio_devices,

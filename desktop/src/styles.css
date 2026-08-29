@@ -345,7 +345,6 @@ img { -webkit-tap-highlight-color: transparent; }
 .final-entry-grid strong { overflow:hidden; font-size:.75rem; text-overflow:ellipsis; white-space:nowrap; }
 .final-entry-grid small { color:#bda3c5; font-size:.62rem; }
 .final-entry-grid input { width:100%; min-height:2.2rem; padding:.35rem; border:2px solid #80537f; border-radius:.35rem; outline:none; color:#ffd84a; background:#160f29; font-family:inherit; font-size:.65rem; font-weight:900; text-align:center; }
-.final-entry-grid input[type="number"] { -webkit-text-security:disc; }
 .final-entry-grid button { min-height:2.1rem; border:2px solid #ffc763; border-radius:.35rem; color:#2a1737; background:#ffd84a; font-family:inherit; font-size:.68rem; font-weight:950; }
 .final-entry-grid .final-entry-confirmed { border-color:#69f0bb; opacity:.7; }
 .final-answer-entry-grid input { text-align:left; }
