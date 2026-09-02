@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "id": "crowd-code-demo",
+  "name": "Глас толпы: семейная игра",
+  "gameType": "crowd-code",
+  "createdAt": "2026-08-30T00:00:00.000Z",
+  "updatedAt": "2026-08-30T00:00:00.000Z",
+  "tags": ["people-society", "mass-media-entertainment"],
+  "rounds": [],
+  "finalThemes": [],
+  "crowdRounds": [
+    {
+      "id": "crowd-round-simple-demo",
+      "name": "Простая игра",
+      "kind": "simple",
+      "questions": [{
+        "id": "crowd-question-morning",
+        "text": "Что люди чаще всего делают сразу после пробуждения?",
+        "image": null,
+        "answers": [
+          {"id":"morning-1","text":"Выключают будильник","points":34},
+          {"id":"morning-2","text":"Смотрят на часы","points":22},
+          {"id":"morning-3","text":"Идут умываться","points":17},
+          {"id":"morning-4","text":"Проверяют телефон","points":13},
+          {"id":"morning-5","text":"Пьют воду","points":8},
+          {"id":"morning-6","text":"Заправляют кровать","points":6}
+        ]
+      }]
+    },
+    {
+      "id": "crowd-round-double-demo",
+      "name": "Двойная игра",
+      "kind": "double",
+      "questions": [{
+        "id": "crowd-question-trip",
+        "text": "Что обычно забывают взять с собой в поездку?",
+        "image": null,
+        "answers": [
+          {"id":"trip-1","text":"Зарядное устройство","points":30},
+          {"id":"trip-2","text":"Зубную щётку","points":24},
+          {"id":"trip-3","text":"Документы","points":17},
+          {"id":"trip-4","text":"Лекарства","points":12},
+          {"id":"trip-5","text":"Зонт","points":10},
+          {"id":"trip-6","text":"Тапочки","points":7}
+        ]
+      }]
+    },
+    {
+      "id": "crowd-round-triple-demo",
+      "name": "Тройная игра",
+      "kind": "triple",
+      "questions": [{
+        "id": "crowd-question-celebration",
+        "text": "Что обязательно бывает на хорошем празднике?",
+        "image": null,
+        "answers": [
+          {"id":"party-1","text":"Вкусная еда","points":28},
+          {"id":"party-2","text":"Музыка","points":23},
+          {"id":"party-3","text":"Друзья","points":19},
+          {"id":"party-4","text":"Подарки","points":13},
+          {"id":"party-5","text":"Торт","points":10},
+          {"id":"party-6","text":"Фотографии","points":7}
+        ]
+      }]
+    },
+    {
+      "id": "crowd-round-reverse-demo",
+      "name": "Игра наоборот",
+      "kind": "reverse",
+      "questions": [{
+        "id": "crowd-question-unusual-pet",
+        "text": "Какое животное люди реже всего называют домашним питомцем?",
+        "image": null,
+        "answers": [
+          {"id":"pet-1","text":"Кошка","points":35},
+          {"id":"pet-2","text":"Собака","points":31},
+          {"id":"pet-3","text":"Попугай","points":14},
+          {"id":"pet-4","text":"Хомяк","points":10},
+          {"id":"pet-5","text":"Змея","points":6},
+          {"id":"pet-6","text":"Улитка","points":4}
+        ]
+      }]
+    },
+    {
+      "id": "crowd-round-big-demo",
+      "name": "Большая игра",
+      "kind": "big",
+      "questions": [{
+        "id": "crowd-question-happiness",
+        "text": "Что чаще всего делает человека счастливее?",
+        "image": null,
+        "answers": [
+          {"id":"happy-1","text":"Семья","points":40},
+          {"id":"happy-2","text":"Любовь","points":35},
+          {"id":"happy-3","text":"Друзья","points":30},
+          {"id":"happy-4","text":"Здоровье","points":27},
+          {"id":"happy-5","text":"Путешествия","points":23},
+          {"id":"happy-6","text":"Деньги","points":20},
+          {"id":"happy-7","text":"Музыка","points":17},
+          {"id":"happy-8","text":"Вкусная еда","points":15},
+          {"id":"happy-9","text":"Домашние животные","points":13},
+          {"id":"happy-10","text":"Хобби","points":11},
+          {"id":"happy-11","text":"Хорошая погода","points":9},
+          {"id":"happy-12","text":"Сон","points":8},
+          {"id":"happy-13","text":"Спорт","points":6},
+          {"id":"happy-14","text":"Кино","points":4},
+          {"id":"happy-15","text":"Покупки","points":2}
+        ]
+      }]
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 export type PackGameType = "topic-clash" | "crowd-code";
 export type PackTag = "people-society" | "nature-universe" | "technology-inventions" | "art-culture" | "mass-media-entertainment" | "sport-activity" | "economy-business" | "logic-abstraction";
 export type QuestionMediaType = "image" | "video" | "audio";
+export type CrowdRoundKind = "simple" | "double" | "triple" | "reverse" | "big";
 
 export interface PackMedia {
   type: QuestionMediaType;
@@ -33,6 +34,26 @@ export interface PackRound {
   themes: PackTheme[];
 }
 
+export interface CrowdAnswer {
+  id: string;
+  text: string;
+  points: number;
+}
+
+export interface CrowdQuestion {
+  id: string;
+  text: string;
+  image: PackMedia | null;
+  answers: CrowdAnswer[];
+}
+
+export interface CrowdRound {
+  id: string;
+  name: string;
+  kind: CrowdRoundKind;
+  questions: CrowdQuestion[];
+}
+
 export interface GamePack {
   schemaVersion: 1;
   id: string;
@@ -43,6 +64,7 @@ export interface GamePack {
   tags: PackTag[];
   rounds: PackRound[];
   finalThemes: PackTheme[];
+  crowdRounds: CrowdRound[];
 }
 
 export interface PackSummary {

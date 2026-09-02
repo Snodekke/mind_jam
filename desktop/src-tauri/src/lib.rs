@@ -218,7 +218,11 @@ fn summary_from_value(value: &Value, file_name: String) -> Result<PackSummary, S
             })
             .unwrap_or_default(),
         updated_at: value["updatedAt"].as_str().unwrap_or_default().to_string(),
-        round_count: value["rounds"].as_array().map_or(0, Vec::len),
+        round_count: if value["gameType"].as_str() == Some("crowd-code") {
+            value["crowdRounds"].as_array().map_or(0, Vec::len)
+        } else {
+            value["rounds"].as_array().map_or(0, Vec::len)
+        },
     })
 }
 
@@ -346,11 +350,11 @@ fn import_pack(
     let mut pack = serde_json::from_str::<Value>(&content).map_err(|error| error.to_string())?;
     let original_id = validated_pack_id(&pack)?.to_string();
     summary_from_value(&pack, format!("{original_id}.json"))?;
-    if !matches!(
-        pack["gameType"].as_str(),
-        Some("topic-clash" | "crowd-code")
-    ) || !pack["rounds"].is_array()
+    let game_type = pack["gameType"].as_str();
+    if !matches!(game_type, Some("topic-clash" | "crowd-code"))
+        || !pack["rounds"].is_array()
         || !pack["finalThemes"].is_array()
+        || (game_type == Some("crowd-code") && !pack["crowdRounds"].is_array())
     {
         return Err("Unsupported Mind Jam pack structure".to_string());
     }
@@ -692,6 +696,7 @@ pub fn run() {
             p2p::send_p2p_final_theme_removal,
             p2p::send_p2p_final_wager,
             p2p::send_p2p_final_answer,
+            p2p::send_p2p_crowd_big_decision,
             p2p::acknowledge_p2p_room_closed,
             p2p::update_hosted_room,
             p2p::close_p2p_room,

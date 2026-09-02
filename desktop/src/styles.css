@@ -348,6 +348,40 @@ img { -webkit-tap-highlight-color: transparent; }
 .final-entry-grid button { min-height:2.1rem; border:2px solid #ffc763; border-radius:.35rem; color:#2a1737; background:#ffd84a; font-family:inherit; font-size:.68rem; font-weight:950; }
 .final-entry-grid .final-entry-confirmed { border-color:#69f0bb; opacity:.7; }
 .final-answer-entry-grid input { text-align:left; }
+.crowd-pack-editor { display:grid; gap:.8rem; }
+.crowd-round-editor .theme-body { display:grid; gap:.75rem; }
+.crowd-question-form { grid-template-columns:minmax(0,1fr); }
+.crowd-answer-editor { display:grid; gap:.35rem; }
+.crowd-answer-editor-row { display:grid; grid-template-columns:2rem minmax(0,1fr) 6rem 2.4rem; gap:.35rem; align-items:center; }
+.crowd-answer-editor-row b { color:#ffc763; text-align:center; }
+.crowd-answer-editor-row input { min-width:0; padding:.55rem; border:2px solid #62436e; border-radius:.3rem; color:#fff6d5; background:#170f28; font:inherit; }
+.crowd-answer-editor-row button { height:2.25rem; border:2px solid #8a4558; color:#ffaaa7; background:#351725; }
+.crowd-game-board { position:relative; z-index:2; display:grid; width:100%; height:100%; min-height:0; place-items:center; align-content:center; gap:.55rem; padding:.8rem 1rem 1.1rem; color:#fff6d5; }
+.crowd-game-board h1,.crowd-game-board h2,.crowd-game-board p { margin:0; text-align:center; }
+.crowd-status-copy { color:#d3b9d4; font-size:.78rem; }
+.crowd-captain-grid,.crowd-big-setup-grid { display:grid; width:min(100%,52rem); grid-template-columns:repeat(auto-fit,minmax(12rem,1fr)); gap:.55rem; }
+.crowd-primary-button { min-height:2.5rem; padding:.5rem 1rem; border:2px solid #ffc763; border-radius:.4rem; color:#281534; background:#ffd84a; font:inherit; font-weight:950; }
+.crowd-question-header { display:grid; max-width:74rem; place-items:center; gap:.35rem; }
+.crowd-question-header h2 { font-size:clamp(.85rem,1.7vw,1.45rem); }
+.crowd-question-header img { max-width:min(28rem,72vw); max-height:19vh; object-fit:contain; border:2px solid #c58b45; }
+.crowd-score-strip { display:flex; width:min(100%,64rem); justify-content:space-between; align-items:center; color:#ffd84a; font-size:.75rem; }
+.crowd-misses { display:flex; gap:.3rem; }
+.crowd-misses b { color:#5d485d; font-size:1.25rem; }
+.crowd-misses b.active { color:#ff615e; text-shadow:0 0 10px #ff443f; }
+.crowd-answer-board { display:grid; width:min(100%,64rem); min-height:0; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.35rem; overflow:auto; }
+.crowd-answer-board button { display:grid; min-height:2.3rem; grid-template-columns:2.2rem minmax(0,1fr) 3.4rem; align-items:center; border:2px solid #9a7043; border-radius:.28rem; color:#d3c6dd; background:#1b1430; font:inherit; }
+.crowd-answer-board button b { color:#ffc763; }
+.crowd-answer-board button span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.crowd-answer-board button strong { color:#ffd84a; }
+.crowd-answer-board button.revealed { border-color:#67dca6; color:#fff9d9; background:#245d49; }
+.crowd-answer-board button:disabled { opacity:1; }
+.crowd-status-panel { display:flex; min-height:2.6rem; flex-wrap:wrap; justify-content:center; align-items:center; gap:.55rem; color:#d9c5dd; }
+.crowd-status-panel strong { color:#6ff0bc; }
+.crowd-big-setup-grid section { display:grid; gap:.4rem; padding:.6rem; border:2px solid #704874; border-radius:.45rem; background:#241735; }
+.crowd-big-setup-grid label { display:grid; gap:.2rem; font-size:.6rem; }
+.crowd-big-setup-grid input,.crowd-big-setup-grid select { min-height:2rem; padding:.3rem; color:#fff6d5; background:#160f29; border:1px solid #80537f; }
+.crowd-captain-badge { position:absolute; z-index:4; top:-.25rem; right:.15rem; display:grid; width:1.35rem; height:1.35rem; place-items:center; border:2px solid #fff1a6; border-radius:.25rem; color:#25152e; background:#ffd84a; font-size:.65rem; font-weight:950; box-shadow:0 0 10px rgba(255,216,74,.75); }
+.team-member { position:relative; }
 .final-judge-grid { z-index:2; display:grid; width:100%; max-height:100%; grid-template-columns:repeat(auto-fit,minmax(10rem,1fr)); gap:.5rem; overflow:auto; }
 .final-judge-grid section { display:grid; gap:.35rem; padding:.5rem; border:2px solid #80537f; border-radius:.4rem; color:#fff6d5; background:#321c43; }
 .final-judge-grid strong { font-size:.72rem; }

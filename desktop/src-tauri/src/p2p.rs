@@ -16,7 +16,7 @@ use std::{
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::{Mutex as AsyncMutex, Notify};
 
-const ROOM_ALPN: &[u8] = b"mind-jam/room/4";
+const ROOM_ALPN: &[u8] = b"mind-jam/room/5";
 const MAX_MESSAGE_SIZE: usize = 256 * 1024 * 1024;
 const PACK_CACHE_TTL_SECS: u64 = 24 * 60 * 60;
 static NEXT_PEER_ID: AtomicU64 = AtomicU64::new(1);
@@ -148,6 +148,10 @@ enum ClientMessage {
     SubmitFinalAnswer {
         answer: String,
     },
+    CrowdBigDecision {
+        wager: i64,
+        player_id: String,
+    },
     RoomClosedAck,
 }
 
@@ -225,7 +229,7 @@ fn validate_avatar_id(avatar_id: &str) -> Result<(), String> {
 
 fn encode_connection_string(address: &EndpointAddr) -> Result<String, String> {
     let bytes = serde_json::to_vec(&ConnectionTicket {
-        version: 4,
+        version: 5,
         address: address.clone(),
     })
     .map_err(|error| error.to_string())?;
@@ -242,7 +246,7 @@ fn decode_connection_string(value: &str) -> Result<ConnectionTicket, String> {
         .map_err(|_| "Invalid room address".to_string())?;
     let ticket: ConnectionTicket =
         serde_json::from_slice(&bytes).map_err(|_| "Invalid connection string".to_string())?;
-    if ticket.version != 4 {
+    if ticket.version != 5 {
         return Err("Invalid connection string".to_string());
     }
     Ok(ticket)
@@ -306,10 +310,13 @@ fn store_cached_pack(app: &AppHandle, connection_string: &str, pack: &Value) -> 
 }
 
 fn validate_pack(pack: &Value) -> Result<(), String> {
+    let game_type = pack.get("gameType").and_then(Value::as_str);
     if pack.get("id").and_then(Value::as_str).is_none()
         || pack.get("name").and_then(Value::as_str).is_none()
-        || pack.get("gameType").and_then(Value::as_str).is_none()
+        || !matches!(game_type, Some("topic-clash" | "crowd-code"))
         || pack.get("rounds").and_then(Value::as_array).is_none()
+        || (game_type == Some("crowd-code")
+            && pack.get("crowdRounds").and_then(Value::as_array).is_none())
     {
         return Err("Invalid game pack".to_string());
     }
@@ -542,6 +549,17 @@ async fn handle_host_connection(
                     "submitFinalAnswer",
                     Some(answer),
                     None,
+                )
+                .await;
+            }
+            Ok(ClientMessage::CrowdBigDecision { wager, player_id }) => {
+                emit_peer_event(
+                    &room,
+                    &peer_id,
+                    &app,
+                    "crowdBigDecision",
+                    Some(wager.to_string()),
+                    Some(player_id),
                 )
                 .await;
             }
@@ -928,6 +946,26 @@ pub async fn send_p2p_final_answer(
         runtime,
         ClientMessage::SubmitFinalAnswer {
             answer: answer.trim().chars().take(240).collect(),
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn send_p2p_crowd_big_decision(
+    wager: i64,
+    player_id: String,
+    runtime: State<'_, Mutex<P2pRuntime>>,
+) -> Result<(), String> {
+    let player_id = player_id.trim().chars().take(96).collect::<String>();
+    if player_id.is_empty() {
+        return Err("Invalid player".to_string());
+    }
+    send_client_message(
+        runtime,
+        ClientMessage::CrowdBigDecision {
+            wager: wager.clamp(0, 999_999),
+            player_id,
         },
     )
     .await

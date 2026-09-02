@@ -3,7 +3,7 @@ import { Component, NgZone, OnDestroy, OnInit, inject } from "@angular/core";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { availableMonitors, getCurrentWindow, PhysicalPosition, PhysicalSize, type Monitor } from "@tauri-apps/api/window";
-import { GamePack, PackGameType, PackMedia, PackQuestion, PackRound, PackSummary, PackTag, PackTheme } from "./pack.models";
+import { CrowdAnswer, CrowdQuestion, CrowdRound, CrowdRoundKind, GamePack, PackGameType, PackMedia, PackQuestion, PackRound, PackSummary, PackTag, PackTheme } from "./pack.models";
 import { PackStorageService } from "./pack-storage.service";
 
 type Language = "en" | "ru";
@@ -16,6 +16,7 @@ type MicrophoneCaptureMode = "off" | "test" | "room";
 type OfflineRoomMode = "bots" | "hotseat";
 type OfflineGamePhase = "lobby" | "round-title" | "themes" | "chooser" | "board" | "question" | "round-complete" | "final-elimination" | "final-themes" | "final-wager" | "final-question" | "final-answers" | "winner";
 type OfflineQuestionStage = "cat-announcement" | "cat-recipient" | "cat-transfer" | "typing" | "text-hold" | "media" | "answering" | "judging" | "answer-reveal";
+type CrowdGamePhase = "captain-selection" | "round-intro" | "faceoff" | "team-play" | "steal" | "reverse-play" | "round-result" | "big-setup" | "big-play" | "winner";
 
 interface MenuItem { action: MenuAction; tone: "primary" | "secondary"; }
 interface AudioDevice { deviceId: string; label: string; }
@@ -27,7 +28,7 @@ interface OfflineTeamView { number: number; name: string; members: OfflineBot[];
 interface OnlineRoomConfig { roomName: string; hostName: string; hostAvatarId: AvatarDefinition["id"]; maxParticipants: number; teamMode: boolean; teamCount: number; gameType: PackGameType; packFileName: string; }
 interface OnlineRoomSeat { index: number; team: number; name: string | null; avatarId: AvatarDefinition["id"] | null; connected: boolean; score: number; }
 interface OnlineRoomSnapshot { config: OnlineRoomConfig; seats: OnlineRoomSeat[]; gameStarted: boolean; paused: boolean; gameState: unknown | null; }
-interface OnlineRoomEvent { kind: "snapshot" | "participantDisconnected" | "hostDisconnected" | "roomClosed" | "error" | "action" | "chat" | "selectQuestion" | "removeFinalTheme" | "submitFinalWager" | "submitFinalAnswer"; snapshot?: OnlineRoomSnapshot; message?: string; seatIndex?: number; questionId?: string; }
+interface OnlineRoomEvent { kind: "snapshot" | "participantDisconnected" | "hostDisconnected" | "roomClosed" | "error" | "action" | "chat" | "selectQuestion" | "removeFinalTheme" | "submitFinalWager" | "submitFinalAnswer" | "crowdBigDecision"; snapshot?: OnlineRoomSnapshot; message?: string; seatIndex?: number; questionId?: string; }
 interface HostOnlineRoomResult { connectionString: string; snapshot: OnlineRoomSnapshot; }
 interface JoinOnlineRoomResult { reconnectToken: string; seatIndex: number | null; snapshot: OnlineRoomSnapshot; gamePack: GamePack; packCacheHit: boolean; }
 interface OnlineGameState {
@@ -64,6 +65,25 @@ interface OnlineGameState {
   finalAnswers: [string, string][];
   finalJudgements: [string, boolean][];
   winnerBotId: string | null;
+  crowd: CrowdOnlineState | null;
+}
+interface CrowdOnlineState {
+  phase: CrowdGamePhase;
+  roundIndex: number;
+  questionIndex: number;
+  captainIds: [number, string][];
+  revealedAnswerIds: string[];
+  activeTeam: number;
+  roundPot: number;
+  misses: number;
+  responderId: string | null;
+  roundWinnerTeam: number | null;
+  bigWagers: [number, number][];
+  bigPlayerIds: [number, string][];
+  bigConfirmedTeams: number[];
+  bigTurnOrder: number[];
+  bigTurnIndex: number;
+  bigPoints: [number, number][];
 }
 interface HotseatContestant { key: string; label: string; bot: OfflineBot; }
 interface OfflineQuestionCheckpoint {
@@ -199,6 +219,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private readonly handleGameActionKey = (event: KeyboardEvent) => {
     if (this.settings.pushToTalk && event.code === this.settings.pushToTalkKey && this.view === "offline-game") {
       event.preventDefault();
+      if (!this.canUseRoomCommunication) return;
       if (!event.repeat && !this.isPushToTalkPressed && !this.offlineGamePaused) {
         this.isPushToTalkPressed = true;
         void this.startRoomMicrophoneMonitoring();
@@ -355,6 +376,24 @@ export class AppComponent implements OnInit, OnDestroy {
   readonly offlineFinalAnswers = new Map<string, string>();
   readonly offlineFinalJudgements = new Map<string, boolean>();
   offlineWinnerBotId: string | null = null;
+  crowdGamePhase: CrowdGamePhase = "captain-selection";
+  crowdRoundIndex = 0;
+  crowdQuestionIndex = 0;
+  readonly crowdCaptainIds = new Map<number, string>();
+  readonly crowdRevealedAnswerIds = new Set<string>();
+  crowdActiveTeam = 1;
+  crowdRoundPot = 0;
+  crowdMisses = 0;
+  crowdResponderId: string | null = null;
+  crowdRoundWinnerTeam: number | null = null;
+  readonly crowdBigWagers = new Map<number, number>();
+  readonly crowdBigPlayerIds = new Map<number, string>();
+  readonly crowdBigWagerDrafts = new Map<number, number>();
+  readonly crowdBigPlayerDrafts = new Map<number, string>();
+  readonly crowdBigConfirmedTeams = new Set<number>();
+  crowdBigTurnOrder: number[] = [];
+  crowdBigTurnIndex = 0;
+  readonly crowdBigPoints = new Map<number, number>();
   readonly offlineAnswerKeys = new Map<string, string>();
   offlineKeySettingsOpen = false;
   scoreEditorTargetId: string | null = null;
@@ -384,6 +423,37 @@ export class AppComponent implements OnInit, OnDestroy {
   get offlineRound(): PackRound | null { return this.offlineGamePack?.rounds[this.offlineRoundIndex] ?? null; }
   get selectedOfflinePackSummary(): PackSummary | undefined {
     return this.offlinePackSummaries.find((pack) => pack.fileName === this.selectedOfflinePackFile);
+  }
+  get selectedOfflinePackIsCrowd(): boolean { return this.selectedOfflinePackSummary?.gameType === "crowd-code"; }
+  get selectedOnlinePackIsCrowd(): boolean {
+    return this.offlinePackSummaries.find((pack) => pack.fileName === this.onlineSelectedPackFile)?.gameType === "crowd-code";
+  }
+  get isCrowdGame(): boolean { return this.offlineGamePack?.gameType === "crowd-code"; }
+  get crowdRound(): CrowdRound | undefined { return this.offlineGamePack?.crowdRounds?.[this.crowdRoundIndex]; }
+  get crowdQuestion(): CrowdQuestion | undefined { return this.crowdRound?.questions[this.crowdQuestionIndex]; }
+  get crowdRoundMultiplier(): number {
+    return this.crowdRound?.kind === "double" ? 2 : this.crowdRound?.kind === "triple" ? 3 : 1;
+  }
+  get crowdResponder(): OfflineBot | undefined { return this.offlineBots.find((bot) => bot.id === this.crowdResponderId); }
+  get crowdCurrentBigTeam(): number | null { return this.crowdBigTurnOrder[this.crowdBigTurnIndex] ?? null; }
+  get crowdCurrentBigPlayer(): OfflineBot | undefined {
+    const team = this.crowdCurrentBigTeam;
+    return team === null ? undefined : this.offlineBots.find((bot) => bot.id === this.crowdBigPlayerIds.get(team));
+  }
+  crowdCaptain(team: number): OfflineBot | undefined {
+    return this.offlineBots.find((bot) => bot.id === this.crowdCaptainIds.get(team));
+  }
+  crowdEligibleTeamMembers(team: number): OfflineBot[] {
+    return this.offlineBots.filter((bot) => bot.team === team && (this.onlineRole !== "host" || bot.connected !== undefined));
+  }
+  isCrowdCaptain(botId: string): boolean { return [...this.crowdCaptainIds.values()].includes(botId); }
+  isCrowdAnswerRevealed(answerId: string): boolean { return this.crowdRevealedAnswerIds.has(answerId); }
+  crowdAnswerScore(answer: CrowdAnswer): number {
+    if (this.crowdRound?.kind === "reverse") {
+      const maximum = Math.max(...(this.crowdQuestion?.answers.map((candidate) => candidate.points) ?? [answer.points]));
+      return Math.max(1, maximum - answer.points + 1);
+    }
+    return answer.points * this.crowdRoundMultiplier;
   }
   get onlineConnectedCount(): number {
     return this.onlineRoomSnapshot?.seats.filter((seat) => seat.connected).length ?? 0;
@@ -440,7 +510,8 @@ export class AppComponent implements OnInit, OnDestroy {
     return Math.max(0, ...(this.offlineRound?.themes.map((theme) => theme.questions.length) ?? []));
   }
   get canStartOfflineGame(): boolean {
-    if (this.offlineBots.length < 2 || this.offlineGamePack?.gameType !== "topic-clash") return false;
+    if (this.offlineBots.length < 2 || !this.offlineGamePack) return false;
+    if (this.isCrowdGame && (!this.offlineTeamMode || this.offlineTeamCount < 2 || this.offlineTeamCount > 3)) return false;
     if (!this.offlineTeamMode) return true;
     return Array.from({ length: this.offlineTeamCount }, (_, index) => index + 1)
       .every((team) => this.offlineBots.some((bot) => bot.team === team));
@@ -467,6 +538,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
   get canPressOfflineHumanAction(): boolean {
     const human = this.offlineHumanBot;
+    if (this.isCrowdGame) return Boolean(human && this.canCrowdBotAct(human.id));
     return Boolean(
       human
       && this.offlineGameStarted
@@ -508,9 +580,20 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.offlineTeamMode) {
       return this.offlineTeams
         .filter((team) => team.members.length > 0)
-        .map((team) => ({ key: `team-${team.number}`, label: team.name, bot: team.members[0] }));
+        .map((team) => {
+          const crowdPlayer = this.crowdGamePhase === "big-play"
+            ? team.members.find((member) => member.id === this.crowdBigPlayerIds.get(team.number))
+            : this.crowdCaptain(team.number);
+          return { key: `team-${team.number}`, label: team.name, bot: this.isCrowdGame ? crowdPlayer ?? team.members[0] : team.members[0] };
+        });
     }
     return this.offlineBots.map((bot) => ({ key: bot.id, label: bot.name, bot }));
+  }
+  get canUseRoomCommunication(): boolean {
+    if (!this.isCrowdGame || this.crowdGamePhase !== "big-play") return true;
+    if (this.onlineRole === "host" || (this.offlineRoomMode === "hotseat" && !this.onlineRole)) return true;
+    const participantId = this.onlineRole === "participant" ? this.onlineParticipantBot?.id : this.offlineHumanBotId ?? undefined;
+    return Boolean(participantId && [...this.crowdBigPlayerIds.values()].includes(participantId));
   }
   get offlineQuestionValue(): number {
     const question = this.offlineSelectedQuestion;
@@ -518,10 +601,10 @@ export class AppComponent implements OnInit, OnDestroy {
     return question.isCatInBag ? question.catValue ?? question.value ?? 0 : question.value ?? 0;
   }
   get canSkipOfflineQuestion(): boolean {
-    return !this.isParticipantGameView && this.offlineGameStarted && !this.offlineGamePaused && this.offlineGamePhase === "question";
+    return !this.isCrowdGame && !this.isParticipantGameView && this.offlineGameStarted && !this.offlineGamePaused && this.offlineGamePhase === "question";
   }
   get canSkipOfflineRound(): boolean {
-    return !this.isParticipantGameView
+    return !this.isCrowdGame && !this.isParticipantGameView
       && this.offlineGameStarted
       && !this.offlineGamePaused
       && ["round-title", "themes", "chooser", "board", "question"].includes(this.offlineGamePhase);
@@ -764,7 +847,15 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   setOnlineTeamCount(raw: string): void {
-    this.onlineTeamCount = Math.min(4, Math.max(2, Number(raw) || 2));
+    this.onlineTeamCount = Math.min(this.selectedOnlinePackIsCrowd ? 3 : 4, Math.max(2, Number(raw) || 2));
+  }
+
+  selectOnlinePack(fileName: string): void {
+    this.onlineSelectedPackFile = fileName;
+    if (this.selectedOnlinePackIsCrowd) {
+      this.onlineTeamMode = true;
+      this.onlineTeamCount = Math.min(3, Math.max(2, this.onlineTeamCount));
+    }
   }
 
   private async loadOnlinePackChoices(): Promise<void> {
@@ -774,6 +865,7 @@ export class AppComponent implements OnInit, OnDestroy {
       if (!listing.packs.some((pack) => pack.fileName === this.onlineSelectedPackFile)) {
         this.onlineSelectedPackFile = listing.packs[0]?.fileName ?? "";
       }
+      this.selectOnlinePack(this.onlineSelectedPackFile);
     } catch {
       this.offlinePackSummaries = [];
       this.onlineSelectedPackFile = "";
@@ -787,15 +879,17 @@ export class AppComponent implements OnInit, OnDestroy {
     this.onlineFeedback = this.tr("Creating a secure P2P room…", "Создаём защищённую P2P-комнату…");
     try {
       const pack = await this.packStorage.load(this.onlineSelectedPackFile);
+      this.normalizePackQuestions(pack);
+      const crowdGame = pack.gameType === "crowd-code";
       const result = await invoke<HostOnlineRoomResult>("host_p2p_room", {
         config: {
           roomName: this.onlineRoomName.trim(),
           hostName: this.nickname,
           hostAvatarId: this.selectedAvatar?.id ?? "male",
           maxParticipants: this.onlineMaxParticipants,
-          teamMode: this.onlineTeamMode,
-          teamCount: this.onlineTeamCount,
-          gameType: "topic-clash",
+          teamMode: crowdGame ? true : this.onlineTeamMode,
+          teamCount: crowdGame ? Math.min(3, this.onlineTeamCount) : this.onlineTeamCount,
+          gameType: pack.gameType,
           packFileName: this.onlineSelectedPackFile,
           pack,
         },
@@ -830,6 +924,7 @@ export class AppComponent implements OnInit, OnDestroy {
       localStorage.setItem(reconnectKey, result.reconnectToken);
       this.onlineRole = "participant";
       this.onlineRoomSnapshot = result.snapshot;
+      this.normalizePackQuestions(result.gamePack);
       this.onlineDownloadedPack = result.gamePack;
       this.onlineSeatIndex = result.seatIndex;
       this.onlineFeedback = result.packCacheHit
@@ -948,7 +1043,7 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.onlineRole === "host" && event.seatIndex !== undefined) {
       const botId = `online-seat-${event.seatIndex}`;
       if (event.kind === "action") this.triggerOfflineAction(botId);
-      else if (event.kind === "chat" && event.message) this.showOfflineRoomMessage(botId, event.message);
+      else if (event.kind === "chat" && event.message && (!this.isCrowdGame || this.crowdGamePhase !== "big-play" || [...this.crowdBigPlayerIds.values()].includes(botId))) this.showOfflineRoomMessage(botId, event.message);
       else if (event.kind === "selectQuestion" && event.questionId && this.offlineChooserBotId === botId) {
         const question = this.offlineRound?.themes.flatMap((theme) => theme.questions).find((item) => item.id === event.questionId);
         if (question) this.selectOfflineQuestion(question);
@@ -971,6 +1066,11 @@ export class AppComponent implements OnInit, OnDestroy {
           this.setOfflineFinalAnswerDraft(finalist.id, event.message);
           this.confirmOfflineFinalAnswer(finalist.id);
           void this.publishOnlineGameState();
+        }
+      } else if (event.kind === "crowdBigDecision" && event.message !== undefined && event.questionId) {
+        const participant = this.offlineBots.find((bot) => bot.id === botId);
+        if (participant && this.crowdCaptainIds.get(participant.team) === participant.id) {
+          this.acceptCrowdBigDecision(participant.team, Math.max(0, Math.round(Number(event.message) || 0)), event.questionId);
         }
       }
     }
@@ -997,6 +1097,14 @@ export class AppComponent implements OnInit, OnDestroy {
   sendOnlineAction(): void {
     const bot = this.onlineParticipantBot;
     if (this.onlineRole !== "participant" || !bot || this.offlineFalseStartIds.has(bot.id)) return;
+    if (this.isCrowdGame) {
+      if (!this.canCrowdBotAct(bot.id)) return;
+      this.pulseOfflineAction(bot.id);
+      void invoke("send_p2p_action").catch(() => {
+        this.onlineFeedback = this.tr("Unable to send the answer signal", "Не удалось отправить сигнал ответа");
+      });
+      return;
+    }
     this.pulseOfflineAction(bot.id);
     if (this.offlineQuestionStage !== "answering") this.lockOfflineFalseStart(bot.id);
     void invoke("send_p2p_action").catch(() => {
@@ -1039,6 +1147,20 @@ export class AppComponent implements OnInit, OnDestroy {
       isFinalQuestion: this.offlineIsFinalQuestion, finalWagers,
       finalAnswers, finalJudgements: [...this.offlineFinalJudgements],
       winnerBotId: this.offlineWinnerBotId,
+      crowd: this.buildCrowdOnlineState(),
+    };
+  }
+
+  private buildCrowdOnlineState(): CrowdOnlineState | null {
+    if (!this.isCrowdGame) return null;
+    return {
+      phase: this.crowdGamePhase, roundIndex: this.crowdRoundIndex, questionIndex: this.crowdQuestionIndex,
+      captainIds: [...this.crowdCaptainIds], revealedAnswerIds: [...this.crowdRevealedAnswerIds],
+      activeTeam: this.crowdActiveTeam, roundPot: this.crowdRoundPot, misses: this.crowdMisses,
+      responderId: this.crowdResponderId, roundWinnerTeam: this.crowdRoundWinnerTeam,
+      bigWagers: [...this.crowdBigWagers], bigPlayerIds: [...this.crowdBigPlayerIds],
+      bigConfirmedTeams: [...this.crowdBigConfirmedTeams], bigTurnOrder: this.crowdBigTurnOrder,
+      bigTurnIndex: this.crowdBigTurnIndex, bigPoints: [...this.crowdBigPoints],
     };
   }
 
@@ -1120,6 +1242,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.replaceMap(this.offlineFinalAnswers, state.finalAnswers);
     this.replaceMap(this.offlineFinalJudgements, state.finalJudgements);
     this.offlineWinnerBotId = state.winnerBotId;
+    if (state.crowd && this.isCrowdGame) this.applyCrowdOnlineState(state.crowd);
     const mediaKeyAfter = `${this.offlineSelectedQuestion?.id ?? ""}:${this.offlineQuestionMediaVisible}`;
     if (mediaKeyAfter !== mediaKeyBefore) {
       this.clearOfflineMediaSource();
@@ -1135,6 +1258,31 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     if (!keepSettingsOpen) this.view = "offline-game";
     this.onlineApplyingSnapshot = false;
+  }
+
+  private applyCrowdOnlineState(state: CrowdOnlineState): void {
+    this.crowdGamePhase = state.phase;
+    this.crowdRoundIndex = state.roundIndex;
+    this.crowdQuestionIndex = state.questionIndex;
+    this.replaceMap(this.crowdCaptainIds, state.captainIds);
+    this.replaceSet(this.crowdRevealedAnswerIds, state.revealedAnswerIds);
+    this.crowdActiveTeam = state.activeTeam;
+    this.crowdRoundPot = state.roundPot;
+    this.crowdMisses = state.misses;
+    this.crowdResponderId = state.responderId;
+    this.crowdRoundWinnerTeam = state.roundWinnerTeam;
+    this.replaceMap(this.crowdBigWagers, state.bigWagers);
+    this.replaceMap(this.crowdBigPlayerIds, state.bigPlayerIds);
+    this.replaceSet(this.crowdBigConfirmedTeams, state.bigConfirmedTeams);
+    this.crowdBigTurnOrder = [...state.bigTurnOrder];
+    this.crowdBigTurnIndex = state.bigTurnIndex;
+    this.replaceMap(this.crowdBigPoints, state.bigPoints);
+    if (!this.canUseRoomCommunication) {
+      this.offlineChatOpen = false;
+      this.offlineChatDraft = "";
+      this.isPushToTalkPressed = false;
+      this.stopMicrophoneTest();
+    }
   }
 
   private startOnlineParticipantQuestionTyping(question: PackQuestion): void {
@@ -1335,6 +1483,7 @@ export class AppComponent implements OnInit, OnDestroy {
       if (!this.offlinePackSummaries.some((pack) => pack.fileName === this.selectedOfflinePackFile)) {
         this.selectedOfflinePackFile = this.offlinePackSummaries[0]?.fileName ?? "";
       }
+      this.selectOfflinePack(this.selectedOfflinePackFile);
     } catch {
       this.offlinePackSummaries = [];
       this.selectedOfflinePackFile = "";
@@ -1419,15 +1568,25 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   setOfflineTeamMode(enabled: boolean): void {
-    this.offlineTeamMode = enabled;
+    this.offlineTeamMode = this.selectedOfflinePackIsCrowd ? true : enabled;
     this.balanceOfflineTeams();
     this.ensureOfflineAnswerKeys();
   }
 
   setOfflineTeamCount(rawCount: string): void {
-    this.offlineTeamCount = Math.min(4, Math.max(2, Number(rawCount) || 2));
+    this.offlineTeamCount = Math.min(this.selectedOfflinePackIsCrowd ? 3 : 4, Math.max(2, Number(rawCount) || 2));
     this.balanceOfflineTeams();
     this.ensureOfflineAnswerKeys();
+  }
+
+  selectOfflinePack(fileName: string): void {
+    this.selectedOfflinePackFile = fileName;
+    if (this.selectedOfflinePackIsCrowd) {
+      this.offlineTeamMode = true;
+      this.offlineTeamCount = Math.min(3, Math.max(2, this.offlineTeamCount));
+      this.balanceOfflineTeams();
+      this.ensureOfflineAnswerKeys();
+    }
   }
 
   setOfflineBotTeam(bot: OfflineBot, rawTeam: string): void {
@@ -1470,6 +1629,11 @@ export class AppComponent implements OnInit, OnDestroy {
     try {
       const pack = await this.packStorage.load(this.selectedOfflinePackFile);
       this.normalizePackQuestions(pack);
+      if (pack.gameType === "crowd-code") {
+        this.offlineTeamMode = true;
+        this.offlineTeamCount = Math.min(3, Math.max(2, this.offlineTeamCount));
+        this.balanceOfflineTeams();
+      }
       this.offlineBots.forEach((bot, index) => {
         bot.name = bot.name.trim() || (this.offlineRoomMode === "hotseat"
           ? this.tr(`Participant ${index + 1}`, `Участник ${index + 1}`)
@@ -1523,11 +1687,13 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   toggleOfflineChat(): void {
+    if (!this.canUseRoomCommunication) return;
     this.offlineChatOpen = !this.offlineChatOpen;
     if (!this.offlineChatOpen) this.offlineChatDraft = "";
   }
 
   sendOfflineRoomMessage(): void {
+    if (!this.canUseRoomCommunication) return;
     const message = this.offlineChatDraft.trim().slice(0, 240);
     if (!message) return;
     if (this.onlineRole === "participant") {
@@ -1541,7 +1707,8 @@ export class AppComponent implements OnInit, OnDestroy {
     this.showOfflineRoomMessage(senderId, message);
     this.offlineChatDraft = "";
     this.offlineChatOpen = false;
-    if (this.offlineBotHostActive && senderId === this.offlineResponderBotId) this.resolveOfflineBotHostAnswer(message);
+    if (!this.isCrowdGame && this.offlineBotHostActive && senderId === this.offlineResponderBotId) this.resolveOfflineBotHostAnswer(message);
+    if (this.isCrowdGame && this.offlineBotHostActive && senderId === this.crowdResponderId) this.resolveCrowdBotHostAnswer(message);
   }
 
   showOfflineRoomMessage(participantId: "host" | string, message: string): void {
@@ -1565,6 +1732,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
   startOfflineGame(): void {
     if (!this.canStartOfflineGame) return;
+    if (this.isCrowdGame) {
+      this.startCrowdGame();
+      return;
+    }
     this.clearOfflineGameTimers();
     this.offlineGameStarted = true;
     this.offlineGamePaused = false;
@@ -1574,6 +1745,347 @@ export class AppComponent implements OnInit, OnDestroy {
     this.offlineQuestionCheckpoint = null;
     this.offlineAnsweredQuestionIds.clear();
     this.announceOfflineRound(true);
+  }
+
+  private startCrowdGame(): void {
+    this.clearOfflineGameTimers();
+    this.offlineGameStarted = true;
+    this.offlineGamePaused = false;
+    this.offlineGamePhase = "question";
+    this.offlineQuestionStage = "judging";
+    this.crowdGamePhase = "captain-selection";
+    this.crowdRoundIndex = 0;
+    this.crowdQuestionIndex = 0;
+    this.crowdCaptainIds.clear();
+    this.crowdRevealedAnswerIds.clear();
+    this.crowdBigWagers.clear();
+    this.crowdBigPlayerIds.clear();
+    this.crowdBigWagerDrafts.clear();
+    this.crowdBigPlayerDrafts.clear();
+    this.crowdBigConfirmedTeams.clear();
+    this.crowdBigPoints.clear();
+    this.crowdBigTurnOrder = [];
+    this.crowdBigTurnIndex = 0;
+    this.crowdResponderId = null;
+    this.crowdRoundPot = 0;
+    this.crowdMisses = 0;
+    this.offlineWinnerBotId = null;
+    if (this.offlineBotHostActive) {
+      for (const team of this.offlineTeams) {
+        const captain = team.members[Math.floor(Math.random() * team.members.length)];
+        if (captain) this.crowdCaptainIds.set(team.number, captain.id);
+      }
+      this.beginCrowdRounds();
+    }
+    void this.publishOnlineGameState();
+  }
+
+  setCrowdCaptain(team: number, botId: string): void {
+    if (this.isParticipantGameView || this.crowdGamePhase !== "captain-selection") return;
+    const bot = this.offlineBots.find((candidate) => candidate.id === botId && candidate.team === team);
+    if (!bot) return;
+    this.crowdCaptainIds.set(team, bot.id);
+    void this.publishOnlineGameState();
+  }
+
+  get canBeginCrowdRounds(): boolean {
+    return this.isCrowdGame && this.offlineTeams.every((team) => Boolean(this.crowdCaptain(team.number)));
+  }
+
+  beginCrowdRounds(): void {
+    if ((this.isParticipantGameView && !this.offlineBotHostActive) || !this.canBeginCrowdRounds) return;
+    this.crowdRoundIndex = 0;
+    this.crowdQuestionIndex = 0;
+    this.prepareCrowdRoundIntro();
+  }
+
+  private prepareCrowdRoundIntro(): void {
+    const round = this.crowdRound;
+    if (!round) {
+      this.finishCrowdGame();
+      return;
+    }
+    this.crowdGamePhase = "round-intro";
+    this.crowdRoundWinnerTeam = null;
+    this.crowdResponderId = null;
+    this.crowdRevealedAnswerIds.clear();
+    this.crowdRoundPot = 0;
+    this.crowdMisses = 0;
+    if (this.offlineBotHostActive) this.offlinePhaseTimer = setTimeout(() => this.startCrowdRoundQuestion(), 1000);
+    void this.publishOnlineGameState();
+  }
+
+  startCrowdRoundQuestion(): void {
+    if (this.onlineRole === "participant" || !this.crowdQuestion) return;
+    this.crowdRevealedAnswerIds.clear();
+    this.crowdRoundPot = 0;
+    this.crowdMisses = 0;
+    this.crowdResponderId = null;
+    this.crowdRoundWinnerTeam = null;
+    if (this.crowdRound?.kind === "big") {
+      this.startCrowdBigSetup();
+      return;
+    }
+    this.crowdActiveTeam = this.offlineTeams[this.crowdRoundIndex % this.offlineTeams.length]?.number ?? 1;
+    this.crowdGamePhase = this.crowdRound?.kind === "reverse" ? "reverse-play" : "faceoff";
+    this.scheduleCrowdBotTurn();
+    void this.publishOnlineGameState();
+  }
+
+  private canCrowdBotAct(botId: string): boolean {
+    if (!this.isCrowdGame || !this.offlineGameStarted || this.offlineGamePaused || this.crowdResponderId) return false;
+    const bot = this.offlineBots.find((candidate) => candidate.id === botId);
+    if (!bot) return false;
+    if (this.crowdGamePhase === "faceoff") return this.crowdCaptainIds.get(bot.team) === bot.id;
+    if (this.crowdGamePhase === "team-play" || this.crowdGamePhase === "reverse-play") return bot.team === this.crowdActiveTeam;
+    if (this.crowdGamePhase === "steal") return bot.team !== this.crowdActiveTeam;
+    if (this.crowdGamePhase === "big-play") return this.crowdBigPlayerIds.get(this.crowdCurrentBigTeam ?? -1) === bot.id;
+    return false;
+  }
+
+  private triggerCrowdAction(botId: string): void {
+    if (!this.canCrowdBotAct(botId)) return;
+    this.pulseOfflineAction(botId);
+    this.crowdResponderId = botId;
+    this.offlineResponderBotId = botId;
+    this.offlineBotAnimations.set(botId, "raiseHand");
+    this.offlineAnimationTimer = setTimeout(() => {
+      if (this.crowdResponderId === botId) this.offlineBotAnimations.set(botId, "talk");
+    }, 500);
+    void this.publishOnlineGameState();
+  }
+
+  revealCrowdAnswer(answer: CrowdAnswer): void {
+    if (this.onlineRole === "participant" || !this.crowdResponder || this.crowdRevealedAnswerIds.has(answer.id)) return;
+    const responder = this.crowdResponder;
+    this.crowdRevealedAnswerIds.add(answer.id);
+    this.offlineBotAnimations.set(responder.id, "victory");
+    if (this.crowdGamePhase === "big-play") {
+      const team = responder.team;
+      this.crowdBigPoints.set(team, (this.crowdBigPoints.get(team) ?? 0) + answer.points);
+      this.advanceCrowdBigTurn();
+      return;
+    }
+    const points = this.crowdAnswerScore(answer);
+    if (this.crowdGamePhase === "reverse-play") {
+      this.addOfflineScore(responder, points);
+      this.clearCrowdResponder();
+      if (this.crowdQuestion?.answers.every((candidate) => this.crowdRevealedAnswerIds.has(candidate.id))) this.finishCrowdQuestion(responder.team);
+      else this.advanceCrowdActiveTeam();
+      return;
+    }
+    this.crowdRoundPot += points;
+    if (this.crowdGamePhase === "faceoff") {
+      this.crowdActiveTeam = responder.team;
+      this.crowdGamePhase = "team-play";
+      this.crowdMisses = 0;
+    } else if (this.crowdGamePhase === "steal") {
+      this.finishCrowdQuestion(responder.team);
+      return;
+    }
+    this.clearCrowdResponder();
+    if (this.crowdQuestion?.answers.every((candidate) => this.crowdRevealedAnswerIds.has(candidate.id))) this.finishCrowdQuestion(this.crowdActiveTeam);
+    else this.scheduleCrowdBotTurn();
+    void this.publishOnlineGameState();
+  }
+
+  markCrowdMiss(): void {
+    if (this.onlineRole === "participant" || !this.crowdResponder) return;
+    const responder = this.crowdResponder;
+    this.offlineBotAnimations.set(responder.id, "upset");
+    if (this.crowdGamePhase === "faceoff") {
+      this.clearCrowdResponder();
+    } else if (this.crowdGamePhase === "team-play") {
+      this.crowdMisses += 1;
+      this.clearCrowdResponder();
+      if (this.crowdMisses >= 3) this.crowdGamePhase = "steal";
+    } else if (this.crowdGamePhase === "steal") {
+      this.finishCrowdQuestion(this.crowdActiveTeam);
+      return;
+    } else if (this.crowdGamePhase === "reverse-play") {
+      this.clearCrowdResponder();
+      this.advanceCrowdActiveTeam();
+    } else if (this.crowdGamePhase === "big-play") {
+      this.advanceCrowdBigTurn();
+      return;
+    }
+    this.scheduleCrowdBotTurn();
+    void this.publishOnlineGameState();
+  }
+
+  private clearCrowdResponder(): void {
+    if (this.crowdResponderId) this.offlineBotAnimations.set(this.crowdResponderId, "idle");
+    this.crowdResponderId = null;
+    this.offlineResponderBotId = null;
+  }
+
+  private advanceCrowdActiveTeam(): void {
+    const teams = this.offlineTeams.map((team) => team.number);
+    const index = teams.indexOf(this.crowdActiveTeam);
+    this.crowdActiveTeam = teams[(index + 1) % teams.length] ?? teams[0] ?? 1;
+    this.scheduleCrowdBotTurn();
+    void this.publishOnlineGameState();
+  }
+
+  private finishCrowdQuestion(winningTeam: number): void {
+    const winner = this.offlineTeamRepresentative(winningTeam);
+    if (winner && this.crowdRound?.kind !== "reverse") this.addOfflineScore(winner, this.crowdRoundPot);
+    this.clearCrowdResponder();
+    this.crowdRoundWinnerTeam = winningTeam;
+    this.crowdGamePhase = "round-result";
+    if (this.offlineBotHostActive) this.offlinePhaseTimer = setTimeout(() => this.continueCrowdGame(), 1200);
+    void this.publishOnlineGameState();
+  }
+
+  continueCrowdGame(): void {
+    if (this.onlineRole === "participant" || this.crowdGamePhase !== "round-result") return;
+    if (this.crowdQuestionIndex + 1 < (this.crowdRound?.questions.length ?? 0)) {
+      this.crowdQuestionIndex += 1;
+      this.startCrowdRoundQuestion();
+      return;
+    }
+    this.crowdRoundIndex += 1;
+    this.crowdQuestionIndex = 0;
+    this.prepareCrowdRoundIntro();
+  }
+
+  private startCrowdBigSetup(): void {
+    this.crowdGamePhase = "big-setup";
+    this.crowdBigWagers.clear();
+    this.crowdBigPlayerIds.clear();
+    this.crowdBigWagerDrafts.clear();
+    this.crowdBigPlayerDrafts.clear();
+    this.crowdBigConfirmedTeams.clear();
+    this.crowdBigPoints.clear();
+    if (this.offlineRoomMode === "bots" && !this.onlineRole) {
+      for (const team of this.offlineTeams) {
+        const player = team.members[Math.floor(Math.random() * team.members.length)];
+        this.crowdBigWagers.set(team.number, Math.max(0, Math.floor(team.score / 4)));
+        if (player) this.crowdBigPlayerIds.set(team.number, player.id);
+        this.crowdBigConfirmedTeams.add(team.number);
+      }
+      this.beginCrowdBigPlay();
+      return;
+    }
+    void this.publishOnlineGameState();
+  }
+
+  canConfigureCrowdBigTeam(team: number): boolean {
+    if (this.crowdBigConfirmedTeams.has(team)) return false;
+    if (this.onlineRole !== "participant") return !this.isParticipantGameView;
+    return this.onlineParticipantBot?.id === this.crowdCaptainIds.get(team);
+  }
+
+  setCrowdBigWager(team: number, raw: string): void {
+    if (!this.canConfigureCrowdBigTeam(team)) return;
+    this.crowdBigWagerDrafts.set(team, Math.max(0, Math.min(this.offlineTeamScore(team), Math.round(Number(raw) || 0))));
+  }
+
+  setCrowdBigPlayer(team: number, botId: string): void {
+    if (!this.canConfigureCrowdBigTeam(team) || !this.offlineBots.some((bot) => bot.id === botId && bot.team === team)) return;
+    this.crowdBigPlayerDrafts.set(team, botId);
+  }
+
+  crowdBigWagerInput(team: number): number { return this.crowdBigWagerDrafts.get(team) ?? this.crowdBigWagers.get(team) ?? 0; }
+  crowdBigPlayerInput(team: number): string { return this.crowdBigPlayerDrafts.get(team) ?? this.crowdBigPlayerIds.get(team) ?? ""; }
+
+  confirmCrowdBigDecision(team: number): void {
+    const playerId = this.crowdBigPlayerInput(team);
+    const wager = this.crowdBigWagerInput(team);
+    if (!this.canConfigureCrowdBigTeam(team) || !playerId) return;
+    if (this.onlineRole === "participant") {
+      void invoke("send_p2p_crowd_big_decision", { wager, playerId }).catch(() => undefined);
+      this.crowdBigConfirmedTeams.add(team);
+      return;
+    }
+    this.acceptCrowdBigDecision(team, wager, playerId);
+  }
+
+  private acceptCrowdBigDecision(team: number, wager: number, playerId: string): void {
+    if (this.crowdGamePhase !== "big-setup" || this.crowdBigConfirmedTeams.has(team)) return;
+    if (!this.offlineBots.some((bot) => bot.id === playerId && bot.team === team)) return;
+    this.crowdBigWagers.set(team, Math.max(0, Math.min(this.offlineTeamScore(team), wager)));
+    this.crowdBigPlayerIds.set(team, playerId);
+    this.crowdBigWagerDrafts.delete(team);
+    this.crowdBigPlayerDrafts.delete(team);
+    this.crowdBigConfirmedTeams.add(team);
+    if (this.crowdBigConfirmedTeams.size === this.offlineTeamCount) this.beginCrowdBigPlay();
+    else void this.publishOnlineGameState();
+  }
+
+  private beginCrowdBigPlay(): void {
+    if (this.crowdBigConfirmedTeams.size < this.offlineTeamCount) return;
+    const teams = [...this.offlineTeams].sort((left, right) => left.score - right.score).map((team) => team.number);
+    const target = this.offlineTeamCount === 3 ? 15 : 10;
+    this.crowdBigTurnOrder = this.offlineTeamCount === 2
+      ? [...Array.from({ length: target - 3 }, (_, index) => teams[index % teams.length]), teams[0], teams[0], teams[1]]
+      : Array.from({ length: target }, (_, index) => teams[index % teams.length]);
+    this.crowdBigTurnIndex = 0;
+    this.crowdGamePhase = "big-play";
+    this.clearCrowdResponder();
+    if (!this.canUseRoomCommunication) {
+      this.offlineChatOpen = false;
+      this.isPushToTalkPressed = false;
+      this.stopMicrophoneTest();
+    }
+    this.scheduleCrowdBotTurn();
+    void this.publishOnlineGameState();
+  }
+
+  private advanceCrowdBigTurn(): void {
+    this.clearCrowdResponder();
+    this.crowdBigTurnIndex += 1;
+    if (this.crowdBigTurnIndex >= this.crowdBigTurnOrder.length || this.crowdQuestion?.answers.every((answer) => this.crowdRevealedAnswerIds.has(answer.id))) {
+      this.finishCrowdBigGame();
+      return;
+    }
+    this.scheduleCrowdBotTurn();
+    void this.publishOnlineGameState();
+  }
+
+  private finishCrowdBigGame(): void {
+    for (const team of this.offlineTeams) {
+      const representative = team.members[0];
+      if (!representative) continue;
+      const points = this.crowdBigPoints.get(team.number) ?? 0;
+      const wager = this.crowdBigWagers.get(team.number) ?? 0;
+      this.addOfflineScore(representative, points + (points >= 100 ? wager : -wager));
+    }
+    this.finishCrowdGame();
+  }
+
+  private finishCrowdGame(): void {
+    const winner = [...this.offlineTeams].sort((left, right) => right.score - left.score)[0];
+    this.offlineWinnerBotId = winner?.members[0]?.id ?? null;
+    this.crowdGamePhase = "winner";
+    this.offlineGamePhase = "winner";
+    void this.publishOnlineGameState();
+  }
+
+  private scheduleCrowdBotTurn(): void {
+    if (this.offlineRoomMode !== "bots" || this.crowdResponderId || this.offlineGamePaused) return;
+    this.clearOfflineBotTimer();
+    const candidates = this.offlineBots.filter((bot) => bot.id !== this.offlineHumanBotId && this.canCrowdBotAct(bot.id));
+    const bot = candidates[Math.floor(Math.random() * candidates.length)];
+    if (!bot) return;
+    this.offlineBotTimer = setTimeout(() => {
+      this.triggerCrowdAction(bot.id);
+      const remaining = this.crowdQuestion?.answers.filter((answer) => !this.crowdRevealedAnswerIds.has(answer.id)) ?? [];
+      const answer = remaining[Math.floor(Math.random() * remaining.length)];
+      this.offlineBotTimer = setTimeout(() => {
+        if (!answer || this.crowdResponderId !== bot.id) return;
+        this.showOfflineRoomMessage(bot.id, answer.text);
+        this.revealCrowdAnswer(answer);
+      }, 700);
+    }, 700 + Math.floor(Math.random() * 900));
+  }
+
+  private resolveCrowdBotHostAnswer(value: string): void {
+    const answer = this.crowdQuestion?.answers
+      .filter((candidate) => !this.crowdRevealedAnswerIds.has(candidate.id))
+      .find((candidate) => this.textSimilarity(value, candidate.text) >= .85);
+    if (answer) this.revealCrowdAnswer(answer);
+    else this.markCrowdMiss();
   }
 
   chooseOfflineChooser(botId: string): void {
@@ -1654,6 +2166,10 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   triggerOfflineAction(botId: string): void {
+    if (this.isCrowdGame) {
+      this.triggerCrowdAction(botId);
+      return;
+    }
     if (
       !this.offlineGameStarted
       || this.offlineGamePaused
@@ -2270,6 +2786,14 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private resumeOfflineGameState(): void {
+    if (this.isCrowdGame) {
+      if (this.offlineBotHostActive && this.crowdGamePhase === "round-intro") {
+        this.offlinePhaseTimer = setTimeout(() => this.startCrowdRoundQuestion(), 700);
+      } else if (this.offlineBotHostActive && this.crowdGamePhase === "round-result") {
+        this.offlinePhaseTimer = setTimeout(() => this.continueCrowdGame(), 700);
+      } else this.scheduleCrowdBotTurn();
+      return;
+    }
     if (this.offlineGamePhase === "round-title") {
       this.offlinePhaseTimer = setTimeout(() => {
         this.offlineGamePhase = "themes";
@@ -2634,6 +3158,9 @@ export class AppComponent implements OnInit, OnDestroy {
       finalThemes: this.newPackType === "topic-clash"
         ? [this.makeTheme(true), this.makeTheme(true), this.makeTheme(true)]
         : [],
+      crowdRounds: this.newPackType === "crowd-code"
+        ? (["simple", "double", "triple", "reverse", "big"] as CrowdRoundKind[]).map((kind) => this.makeCrowdRound(kind))
+        : [],
     };
     this.activeRoundIndex = 0;
     this.expandedQuestionId = null;
@@ -2853,7 +3380,76 @@ export class AppComponent implements OnInit, OnDestroy {
     };
   }
 
+  crowdRoundLabel(kind: CrowdRoundKind): string {
+    const labels: Record<CrowdRoundKind, [string, string]> = {
+      simple: ["Simple game", "Простая игра"], double: ["Double game", "Двойная игра"],
+      triple: ["Triple game", "Тройная игра"], reverse: ["Reverse game", "Игра наоборот"],
+      big: ["Big game", "Большая игра"],
+    };
+    return this.tr(...labels[kind]);
+  }
+
+  addCrowdQuestion(round: CrowdRound): void {
+    if (round.questions.length >= 8) return;
+    round.questions.push(this.makeCrowdQuestion(round.kind));
+  }
+
+  removeCrowdQuestion(round: CrowdRound, index: number): void {
+    if (round.questions.length <= 1) return;
+    round.questions.splice(index, 1);
+  }
+
+  addCrowdAnswer(question: CrowdQuestion): void {
+    const max = this.crowdQuestionRoundKind(question) === "big" ? 15 : 12;
+    if (question.answers.length >= max) return;
+    question.answers.push({ id: this.makeId("answer"), text: "", points: Math.max(1, 100 - question.answers.length * 10) });
+  }
+
+  removeCrowdAnswer(question: CrowdQuestion, index: number): void {
+    const min = this.crowdQuestionRoundKind(question) === "big" ? 15 : 6;
+    if (question.answers.length <= min) return;
+    question.answers.splice(index, 1);
+  }
+
+  setCrowdAnswerPoints(answer: CrowdAnswer, raw: string): void {
+    answer.points = Math.max(1, Math.min(999, Math.round(Number(raw) || 1)));
+  }
+
+  async attachCrowdQuestionImage(question: CrowdQuestion, input: HTMLInputElement): Promise<void> {
+    const file = input.files?.[0];
+    if (!file) return;
+    try {
+      const image = await this.readMedia(file, true);
+      question.image = image;
+      this.packFeedback = "";
+    } catch (error) {
+      input.value = "";
+      this.packFeedback = error instanceof Error ? error.message : this.tr("Unable to attach the image", "Не удалось добавить изображение");
+    }
+  }
+
+  private crowdQuestionRoundKind(question: CrowdQuestion): CrowdRoundKind | undefined {
+    return this.packDraft?.crowdRounds.find((round) => round.questions.includes(question))?.kind;
+  }
+
+  private makeCrowdRound(kind: CrowdRoundKind): CrowdRound {
+    return { id: this.makeId("crowd-round"), name: this.crowdRoundLabel(kind), kind, questions: [this.makeCrowdQuestion(kind)] };
+  }
+
+  private makeCrowdQuestion(kind: CrowdRoundKind): CrowdQuestion {
+    const answerCount = kind === "big" ? 15 : 6;
+    return {
+      id: this.makeId("crowd-question"), text: "", image: null,
+      answers: Array.from({ length: answerCount }, (_, index) => ({
+        id: this.makeId("answer"), text: "", points: Math.max(1, 100 - index * (kind === "big" ? 6 : 12)),
+      })),
+    };
+  }
+
   private normalizePackQuestions(pack: GamePack): void {
+    pack.rounds = Array.isArray(pack.rounds) ? pack.rounds : [];
+    pack.finalThemes = Array.isArray(pack.finalThemes) ? pack.finalThemes : [];
+    pack.crowdRounds = Array.isArray(pack.crowdRounds) ? pack.crowdRounds : [];
     pack.tags = Array.isArray(pack.tags)
       ? pack.tags.filter((tag): tag is PackTag => this.packTagOptions.includes(tag as PackTag)).slice(0, 3)
       : [];
@@ -2872,6 +3468,13 @@ export class AppComponent implements OnInit, OnDestroy {
         question.value = null;
         question.isCatInBag = false;
         question.catValue = null;
+      }
+    }
+    for (const round of pack.crowdRounds) {
+      round.questions = Array.isArray(round.questions) ? round.questions : [];
+      for (const question of round.questions) {
+        question.image = question.image?.type === "image" ? question.image : null;
+        question.answers = Array.isArray(question.answers) ? question.answers : [];
       }
     }
   }
@@ -2929,7 +3532,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private validatePack(pack: GamePack): string | null {
     if (!pack.name.trim()) return this.tr("Pack name is required", "Название пака обязательно");
-    if (pack.gameType === "crowd-code") return null;
+    if (pack.gameType === "crowd-code") return this.validateCrowdPack(pack);
     if (pack.rounds.length < 2 || pack.rounds.length > 8) return this.tr("There must be 2–8 rounds", "Количество раундов должно быть от 2 до 8");
     if (pack.finalThemes.length < 3 || pack.finalThemes.length > 12) return this.tr("The final must contain 3–12 themes", "В финале должно быть от 3 до 12 тем");
 
@@ -2944,6 +3547,27 @@ export class AppComponent implements OnInit, OnDestroy {
     for (const [themeIndex, theme] of pack.finalThemes.entries()) {
       const error = this.validateTheme(theme, true);
       if (error) return this.tr(`Final, theme ${themeIndex + 1}: ${error}`, `Финал, тема ${themeIndex + 1}: ${error}`);
+    }
+    return null;
+  }
+
+  private validateCrowdPack(pack: GamePack): string | null {
+    const requiredKinds: CrowdRoundKind[] = ["simple", "double", "triple", "reverse", "big"];
+    for (const kind of requiredKinds) {
+      if (!pack.crowdRounds.some((round) => round.kind === kind)) {
+        return this.tr(`Add the “${this.crowdRoundLabel(kind)}” stage`, `Добавьте этап «${this.crowdRoundLabel(kind)}»`);
+      }
+    }
+    for (const [roundIndex, round] of pack.crowdRounds.entries()) {
+      if (!round.name.trim()) return this.tr(`Enter the name of stage ${roundIndex + 1}`, `Введите название этапа ${roundIndex + 1}`);
+      if (round.questions.length < 1 || round.questions.length > 8) return this.tr("Each stage must contain 1–8 questions", "В каждом этапе должно быть от 1 до 8 вопросов");
+      for (const [questionIndex, question] of round.questions.entries()) {
+        if (!question.text.trim()) return this.tr(`Stage ${roundIndex + 1}, question ${questionIndex + 1}: enter question text`, `Этап ${roundIndex + 1}, вопрос ${questionIndex + 1}: введите текст вопроса`);
+        const min = round.kind === "big" ? 15 : 6;
+        const max = round.kind === "big" ? 15 : 12;
+        if (question.answers.length < min || question.answers.length > max) return this.tr(`This question needs ${min}–${max} answers`, `В этом вопросе должно быть ${min}–${max} ответов`);
+        if (question.answers.some((answer) => !answer.text.trim() || answer.points < 1)) return this.tr("Fill every answer and its points", "Заполните все ответы и очки");
+      }
     }
     return null;
   }
@@ -3258,6 +3882,10 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private async startRoomMicrophoneMonitoring(): Promise<void> {
+    if (!this.canUseRoomCommunication) {
+      this.stopMicrophoneTest();
+      return;
+    }
     if (this.settings.pushToTalk && !this.isPushToTalkPressed) {
       this.stopMicrophoneTest();
       return;

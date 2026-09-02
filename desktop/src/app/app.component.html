@@ -58,8 +58,8 @@
       <section class="offline-setup-panel">
         <div class="online-room-fields"><label class="pack-field"><span>{{ tr("Room name", "Название комнаты") }}</span><input type="text" maxlength="64" [value]="onlineRoomName" (input)="onlineRoomName = $any($event.target).value" /></label></div>
         <div class="bot-count-setting"><span><small>{{ tr("Maximum participants", "Максимум участников") }}</small><strong>{{ onlineMaxParticipants }}</strong></span><div class="bot-count-controls"><button type="button" [disabled]="onlineMaxParticipants <= 2" (click)="onlineMaxParticipants = onlineMaxParticipants - 1">−</button><input type="range" min="2" max="12" step="1" [value]="onlineMaxParticipants" (input)="onlineMaxParticipants = $any($event.target).valueAsNumber" /><button type="button" [disabled]="onlineMaxParticipants >= 12" (click)="onlineMaxParticipants = onlineMaxParticipants + 1">＋</button></div></div>
-        <div class="offline-team-setting"><label><input type="checkbox" [checked]="onlineTeamMode" (change)="onlineTeamMode = $any($event.target).checked" /><span>{{ tr("Team game", "Командная игра") }}</span></label>@if (onlineTeamMode) { <label class="pack-field"><span>{{ tr("Number of teams", "Количество команд") }}</span><select [value]="onlineTeamCount" (change)="setOnlineTeamCount($any($event.target).value)">@for (team of [2,3,4]; track team) { <option [value]="team">{{ team }}</option> }</select></label> }</div>
-        <div class="offline-pack-choice"><label class="pack-field"><span>{{ t("choosePack") }}</span><select [value]="onlineSelectedPackFile" (change)="onlineSelectedPackFile = $any($event.target).value">@if (offlinePackSummaries.length === 0) { <option value="">{{ t("noPlayablePacks") }}</option> } @for (pack of offlinePackSummaries; track pack.fileName) { <option [value]="pack.fileName">{{ pack.name }} · {{ packTypeLabel(pack.gameType) }}</option> }</select></label><button class="offline-start-button" type="button" [disabled]="onlineBusy || !onlineRoomName.trim() || !onlineSelectedPackFile" (click)="createOnlineRoom()">{{ onlineBusy ? tr("CREATING…", "СОЗДАНИЕ…") : tr("CREATE ROOM", "СОЗДАТЬ КОМНАТУ") }}</button></div>
+        <div class="offline-team-setting"><label><input type="checkbox" [checked]="onlineTeamMode || selectedOnlinePackIsCrowd" [disabled]="selectedOnlinePackIsCrowd" (change)="onlineTeamMode = $any($event.target).checked" /><span>{{ tr("Team game", "Командная игра") }}</span></label>@if (onlineTeamMode || selectedOnlinePackIsCrowd) { <label class="pack-field"><span>{{ tr("Number of teams", "Количество команд") }}</span><select [value]="onlineTeamCount" (change)="setOnlineTeamCount($any($event.target).value)">@for (team of (selectedOnlinePackIsCrowd ? [2,3] : [2,3,4]); track team) { <option [value]="team">{{ team }}</option> }</select></label> }</div>
+        <div class="offline-pack-choice"><label class="pack-field"><span>{{ t("choosePack") }}</span><select [value]="onlineSelectedPackFile" (change)="selectOnlinePack($any($event.target).value)">@if (offlinePackSummaries.length === 0) { <option value="">{{ t("noPlayablePacks") }}</option> } @for (pack of offlinePackSummaries; track pack.fileName) { <option [value]="pack.fileName">{{ pack.name }} · {{ packTypeLabel(pack.gameType) }}</option> }</select></label><button class="offline-start-button" type="button" [disabled]="onlineBusy || !onlineRoomName.trim() || !onlineSelectedPackFile" (click)="createOnlineRoom()">{{ onlineBusy ? tr("CREATING…", "СОЗДАНИЕ…") : tr("CREATE ROOM", "СОЗДАТЬ КОМНАТУ") }}</button></div>
         @if (onlineFeedback) { <p class="pack-feedback" aria-live="polite">{{ onlineFeedback }}</p> }
       </section>
     </main>
@@ -111,9 +111,9 @@
         </div>
 
         <div class="offline-team-setting">
-          <label><input type="checkbox" [checked]="offlineTeamMode" (change)="setOfflineTeamMode($any($event.target).checked)" /><span>{{ tr("Team game", "Командная игра") }}</span></label>
+          <label><input type="checkbox" [checked]="offlineTeamMode || selectedOfflinePackIsCrowd" [disabled]="selectedOfflinePackIsCrowd" (change)="setOfflineTeamMode($any($event.target).checked)" /><span>{{ tr("Team game", "Командная игра") }}</span></label>
           @if (offlineTeamMode) {
-            <label class="pack-field"><span>{{ tr("Number of teams", "Количество команд") }}</span><select [value]="offlineTeamCount" (change)="setOfflineTeamCount($any($event.target).value)">@for (team of [2, 3, 4]; track team) { <option [value]="team">{{ team }}</option> }</select></label>
+            <label class="pack-field"><span>{{ tr("Number of teams", "Количество команд") }}</span><select [value]="offlineTeamCount" (change)="setOfflineTeamCount($any($event.target).value)">@for (team of (selectedOfflinePackIsCrowd ? [2, 3] : [2, 3, 4]); track team) { <option [value]="team">{{ team }}</option> }</select></label>
             <div class="offline-team-name-grid">
               @for (team of offlineTeams; track team.number) {
                 <label class="pack-field"><span>{{ tr("Team name", "Название команды") }} {{ team.number }}</span><input type="text" maxlength="32" [value]="offlineTeamNames[team.number - 1]" [placeholder]="team.name" (input)="setOfflineTeamName(team.number, $any($event.target).value)" /></label>
@@ -142,7 +142,7 @@
 
         <div class="offline-pack-choice">
           <label class="pack-field"><span>{{ t("choosePack") }}</span>
-            <select [value]="selectedOfflinePackFile" (change)="selectedOfflinePackFile = $any($event.target).value">
+            <select [value]="selectedOfflinePackFile" (change)="selectOfflinePack($any($event.target).value)">
               @if (offlinePackSummaries.length === 0) { <option value="">{{ t("noPlayablePacks") }}</option> }
               @for (pack of offlinePackSummaries; track pack.fileName) { <option [value]="pack.fileName">{{ pack.name }} · {{ packTypeLabel(pack.gameType) }} · {{ packTagsLabel(pack.tags) }} · {{ pack.roundCount }} {{ tr("rounds", "раундов") }}</option> }
             </select>
@@ -183,13 +183,13 @@
       <div class="room-chat-controls">
         @if (offlineChatOpen) {
           <form class="room-chat-composer" (submit)="sendOfflineRoomMessage(); $event.preventDefault()">
-            <input type="text" maxlength="240" [value]="offlineChatDraft" (input)="offlineChatDraft = $any($event.target).value" [placeholder]="tr('Write a message…', 'Напишите сообщение…')" autofocus />
+            <input type="text" maxlength="240" [disabled]="!canUseRoomCommunication" [value]="offlineChatDraft" (input)="offlineChatDraft = $any($event.target).value" [placeholder]="tr('Write a message…', 'Напишите сообщение…')" autofocus />
             <button type="submit" [disabled]="!offlineChatDraft.trim()" [attr.aria-label]="tr('Send message', 'Отправить сообщение')">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.4 20.4 17.8-8a.45.45 0 0 0 0-.82l-17.8-8a.45.45 0 0 0-.62.5L4.3 10.7l9.1 1.3-9.1 1.3-1.52 6.6a.45.45 0 0 0 .62.5Z" /></svg>
             </button>
           </form>
         }
-        <button class="room-chat-toggle" [class.room-chat-toggle-active]="offlineChatOpen" type="button" (click)="toggleOfflineChat()" [attr.aria-label]="tr('Room message', 'Сообщение в комнату')" [attr.title]="tr('Room message', 'Сообщение в комнату')">
+        <button class="room-chat-toggle" [class.room-chat-toggle-active]="offlineChatOpen" type="button" [disabled]="!canUseRoomCommunication" (click)="toggleOfflineChat()" [attr.aria-label]="tr('Room message', 'Сообщение в комнату')" [attr.title]="canUseRoomCommunication ? tr('Room message', 'Сообщение в комнату') : tr('Only Big Game players can use chat', 'Чат доступен только участникам Большой игры')">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5.2 3.5A.5.5 0 0 1 3 20.1V6a2 2 0 0 1 2-2Zm2 5h10V7H7v2Zm0 4h7v-2H7v2Z" /></svg>
         </button>
         @if (offlineHumanBot; as human) {
@@ -219,6 +219,30 @@
           <span class="screen-kicker">MIND JAM · {{ packTypeLabel(gamePack.gameType) }}</span>
           <h1>{{ gamePack.name }}</h1>
           <span class="screen-ready">{{ tr("READY TO START", "ГОТОВО К НАЧАЛУ") }}</span>
+        } @else if (isCrowdGame) {
+          <section class="crowd-game-board">
+            @if (crowdGamePhase === "captain-selection") {
+              <span class="screen-kicker">{{ tr("TEAM CAPTAINS", "КАПИТАНЫ КОМАНД") }}</span><h2>{{ tr("The host chooses one captain from each team", "Ведущий выбирает капитана каждой команды") }}</h2>
+              @if (isParticipantGameView && !offlineBotHostActive) { <p class="crowd-status-copy">{{ tr("Waiting for the host…", "Ожидаем выбора ведущего…") }}</p> } @else { <div class="crowd-captain-grid">@for (team of offlineTeams; track team.number) { <label class="pack-field"><span>{{ team.name }}</span><select [value]="crowdCaptainIds.get(team.number) ?? ''" (change)="setCrowdCaptain(team.number, $any($event.target).value)"><option value="">{{ tr("Choose captain", "Выберите капитана") }}</option>@for (member of crowdEligibleTeamMembers(team.number); track member.id) { <option [value]="member.id">{{ member.name }}</option> }</select></label> }</div><button class="crowd-primary-button" type="button" [disabled]="!canBeginCrowdRounds" (click)="beginCrowdRounds()">{{ tr("CONFIRM CAPTAINS", "УТВЕРДИТЬ КАПИТАНОВ") }}</button> }
+            } @else if (crowdGamePhase === "round-intro") {
+              <span class="screen-kicker">{{ crowdRoundLabel(crowdRound?.kind ?? 'simple') }}</span><h1>{{ crowdRound?.name }}</h1><p class="crowd-status-copy">@if (crowdRound?.kind === 'double') { ×2 } @else if (crowdRound?.kind === 'triple') { ×3 } @else if (crowdRound?.kind === 'reverse') { {{ tr("Find the least popular answers", "Ищите самые непопулярные ответы") }} } @else if (crowdRound?.kind === 'big') { {{ tr("Captains wager and choose one player", "Капитаны делают ставку и выбирают игрока") }} }</p>@if (!isParticipantGameView) { <button class="crowd-primary-button" type="button" (click)="startCrowdRoundQuestion()">{{ tr("START STAGE", "НАЧАТЬ ЭТАП") }}</button> }
+            } @else if (crowdGamePhase === "big-setup") {
+              <span class="screen-kicker">{{ tr("BIG GAME · TEAM DECISIONS", "БОЛЬШАЯ ИГРА · РЕШЕНИЯ КОМАНД") }}</span>
+              <h2>{{ tr("Captains choose a wager and one player", "Капитаны выбирают ставку и одного игрока") }}</h2>
+              <p class="crowd-status-copy">{{ tr("100 answer points or more wins the wager; otherwise it is deducted.", "100 очков за ответы или больше выигрывают ставку, иначе она вычитается.") }}</p>
+              <div class="crowd-big-setup-grid">@for (team of offlineTeams; track team.number) { <section [class.final-entry-confirmed]="crowdBigConfirmedTeams.has(team.number)"><strong>{{ team.name }}</strong><label><span>{{ tr("Wager", "Ставка") }}</span><input type="number" min="0" [max]="team.score" [disabled]="!canConfigureCrowdBigTeam(team.number)" [value]="crowdBigWagerInput(team.number)" (input)="setCrowdBigWager(team.number, $any($event.target).value)" /></label><label><span>{{ tr("Player", "Игрок") }}</span><select [disabled]="!canConfigureCrowdBigTeam(team.number)" [value]="crowdBigPlayerInput(team.number)" (change)="setCrowdBigPlayer(team.number, $any($event.target).value)"><option value="">—</option>@for (member of crowdEligibleTeamMembers(team.number); track member.id) { <option [value]="member.id">{{ member.name }}</option> }</select></label><button type="button" [disabled]="!canConfigureCrowdBigTeam(team.number) || !crowdBigPlayerInput(team.number)" (click)="confirmCrowdBigDecision(team.number)">{{ crowdBigConfirmedTeams.has(team.number) ? "✓" : tr("CONFIRM", "УТВЕРДИТЬ") }}</button></section> }</div>
+            } @else if (crowdGamePhase === "winner") {
+              <span class="screen-kicker">MIND JAM · {{ tr("WINNER", "ПОБЕДИТЕЛЬ") }}</span><h1>{{ offlineWinnerTeam?.name }}</h1><button class="winner-exit-button" type="button" (click)="exitCurrentGame()">{{ tr("EXIT ROOM", "ВЫЙТИ ИЗ КОМНАТЫ") }}</button>
+            } @else if (crowdQuestion; as question) {
+              <header class="crowd-question-header"><span class="screen-kicker">{{ crowdRound?.name }}</span><h2>{{ question.text }}</h2>@if (question.image; as image) { <img [src]="image.dataUrl" [alt]="question.text" /> }</header>
+              <div class="crowd-score-strip"><span>{{ tr("ROUND", "РАУНД") }}: <b>{{ crowdRoundPot }}</b></span>@if (crowdGamePhase === 'team-play' || crowdGamePhase === 'steal') { <span class="crowd-misses">@for (miss of [1,2,3]; track miss) { <b [class.active]="miss <= crowdMisses">×</b> }</span> }@if (crowdGamePhase === 'big-play') { <span>{{ tr("ANSWER", "ОТВЕТ") }} {{ crowdBigTurnIndex + 1 }}/{{ crowdBigTurnOrder.length }}</span> }</div>
+              <div class="crowd-answer-board">@for (answer of question.answers; track answer.id; let answerIndex = $index) { <button type="button" [class.revealed]="isCrowdAnswerRevealed(answer.id)" [disabled]="isParticipantGameView || !crowdResponder || isCrowdAnswerRevealed(answer.id)" (click)="revealCrowdAnswer(answer)"><b>{{ answerIndex + 1 }}</b>@if (isCrowdAnswerRevealed(answer.id)) { <span>{{ answer.text }}</span><strong>{{ crowdAnswerScore(answer) }}</strong> } @else { <span>{{ isParticipantGameView ? "" : answer.text }}</span><strong>?</strong> }</button> }</div>
+              <div class="crowd-status-panel">@if (crowdGamePhase === 'faceoff') { <span>{{ tr("Captains buzz in", "Капитаны отвечают на скорость") }}</span> } @else if (crowdGamePhase === 'team-play') { <span>{{ offlineTeamName(crowdActiveTeam) }} · {{ tr("team answers", "ответ команды") }}</span> } @else if (crowdGamePhase === 'steal') { <span>{{ tr("Opponents can steal the round", "Соперники могут забрать раунд") }}</span> } @else if (crowdGamePhase === 'reverse-play') { <span>{{ offlineTeamName(crowdActiveTeam) }} · {{ tr("find a rare answer", "найдите редкий ответ") }}</span> } @else if (crowdGamePhase === 'big-play') { <span>{{ crowdCurrentBigPlayer?.name }} · {{ offlineTeamName(crowdCurrentBigTeam ?? 1) }}</span> } @else if (crowdGamePhase === 'round-result') { <span>{{ offlineTeamName(crowdRoundWinnerTeam ?? 1) }} · +{{ crowdRoundPot }}</span> }
+                @if (crowdResponder; as responder) { <strong>{{ responder.name }} {{ tr("answers", "отвечает") }}</strong>@if (!isParticipantGameView) { <button class="answer-wrong" type="button" (click)="markCrowdMiss()">× {{ tr("MISS", "ПРОМАХ") }}</button> } }
+                @if (crowdGamePhase === 'round-result' && !isParticipantGameView) { <button class="crowd-primary-button" type="button" (click)="continueCrowdGame()">{{ tr("CONTINUE", "ПРОДОЛЖИТЬ") }}</button> }
+              </div>
+            }
+          </section>
         } @else if (offlineRound; as round) {
           @if (offlineGamePhase === "round-title") {
             <span class="screen-kicker">{{ tr("ROUND", "РАУНД") }} {{ offlineRoundIndex + 1 }}</span>
@@ -299,6 +323,7 @@
               <div class="team-members" [style.--member-count]="team.members.length">
                 @for (bot of team.members; track bot.id) {
                   <div class="team-member">
+                    @if (isCrowdGame && isCrowdCaptain(bot.id)) { <span class="crowd-captain-badge" [attr.title]="tr('Captain', 'Капитан')">C</span> }
                     @if (offlineRoomMessage(bot.id); as message) { <div class="room-message-bubble participant-room-message">{{ message }}</div> }
                     @if (avatarById(bot.avatarId); as avatar) {
                       <div class="arena-avatar bot-arena-avatar score-target voice-reactive-avatar" [class.final-eliminated]="isOfflineBotEliminated(bot)" [class.player-disconnected-avatar]="bot.connected === false" [style.background-image]="'url(' + arenaSpriteSheet(avatar, offlineBotAnimation(bot.id)) + ')'" [style.--sprite-x]="arenaSpritePosition(avatar, offlineBotAnimation(bot.id))" [style.--cycle-duration]="arenaAnimationDuration(avatar, offlineBotAnimation(bot.id))" [style.--iteration-count]="offlineBotAnimationIterations(avatar, bot.id)" [style.--voice-aura-blur]="voiceAuraBlur(bot.id)" [style.--voice-aura-opacity]="voiceAuraOpacity(bot.id)" role="button" tabindex="0" [attr.aria-label]="tr('Change team score for ', 'Изменить счёт команды: ') + team.name" (click)="openTeamScoreEditor(team.number)" (keydown.enter)="openTeamScoreEditor(team.number)"></div>
@@ -546,7 +571,7 @@
         <label class="pack-field"><span>{{ tr("Pack name", "Название пака") }}</span><input type="text" maxlength="80" [value]="newPackName" (input)="newPackName = $any($event.target).value" [placeholder]="tr('For example: Friday Jam', 'Например: Пятничный джем')" /></label>
         <label class="pack-field"><span>{{ tr("Game format", "Тип игры") }}</span><select [value]="newPackType" (change)="newPackType = $any($event.target).value"><option value="topic-clash">{{ packTypeLabel("topic-clash") }}</option><option value="crowd-code">{{ packTypeLabel("crowd-code") }}</option></select></label>
         <fieldset class="pack-tags-field"><legend>{{ tr("Tags — up to 3", "Теги — до 3") }}</legend><div class="pack-tag-options">@for (tag of packTagOptions; track tag) { <label [class.tag-option-selected]="newPackTags.includes(tag)" [class.tag-option-disabled]="newPackTags.length >= 3 && !newPackTags.includes(tag)"><input type="checkbox" [checked]="newPackTags.includes(tag)" [disabled]="newPackTags.length >= 3 && !newPackTags.includes(tag)" (change)="toggleNewPackTag(tag, $any($event.target).checked)" /><span>{{ packTagLabel(tag) }}</span></label> }</div></fieldset>
-        <div class="format-hint"><span aria-hidden="true">?</span><p>@if (newPackType === "topic-clash") { {{ tr("Rounds, themes and questions with a final.", "Раунды, темы и вопросы с финалом.") }} } @else { {{ tr("Answers ranked by audience popularity. The editor for this format comes next.", "Ответы, расположенные по популярности у аудитории. Редактор этого формата появится следующим.") }} }</p></div>
+        <div class="format-hint"><span aria-hidden="true">?</span><p>@if (newPackType === "topic-clash") { {{ tr("Rounds, themes and questions with a final.", "Раунды, темы и вопросы с финалом.") }} } @else { {{ tr("Five team stages with answers ranked by audience popularity.", "Пять командных этапов с ответами, расположенными по популярности у аудитории.") }} }</p></div>
         <button class="primary-pack-action" type="button" (click)="createPackDraft()">{{ tr("CONTINUE", "ПРОДОЛЖИТЬ") }} <span aria-hidden="true">›</span></button>
         @if (packFeedback) { <p class="pack-feedback" aria-live="polite">{{ packFeedback }}</p> }
       </section>
@@ -562,7 +587,31 @@
       <fieldset class="pack-tags-field editor-tags-field"><legend>{{ tr("Pack tags — up to 3", "Теги пака — до 3") }}</legend><div class="pack-tag-options">@for (tag of packTagOptions; track tag) { <label [class.tag-option-selected]="pack.tags.includes(tag)" [class.tag-option-disabled]="pack.tags.length >= 3 && !pack.tags.includes(tag)"><input type="checkbox" [checked]="pack.tags.includes(tag)" [disabled]="pack.tags.length >= 3 && !pack.tags.includes(tag)" (change)="togglePackTag(pack, tag, $any($event.target).checked)" /><span>{{ packTagLabel(tag) }}</span></label> }</div></fieldset>
 
       @if (pack.gameType === "crowd-code") {
-        <section class="coming-editor"><span aria-hidden="true">◎</span><h2>{{ packTypeLabel(pack.gameType) }}</h2><p>{{ tr("The pack can already be saved. Questions and answer ranking for this format will be added in the next step.", "Пак уже можно сохранить. Вопросы и рейтинг ответов для этого формата добавим следующим этапом.") }}</p></section>
+        <section class="crowd-pack-editor">
+          <p class="editor-help">{{ tr("Create questions with ranked answers. Ordinary stages require 6–12 answers; the Big Game requires 15.", "Создавайте вопросы с ответами по популярности. Для обычных этапов нужно 6–12 ответов, для Большой игры — 15.") }}</p>
+          @for (round of pack.crowdRounds; track round.id; let roundIndex = $index) {
+            <details class="theme-editor crowd-round-editor" [open]="roundIndex === 0">
+              <summary class="theme-header"><span class="theme-number">{{ roundIndex + 1 }}</span><strong>{{ round.name }}</strong><span class="theme-status">{{ crowdRoundLabel(round.kind) }} · {{ round.questions.length }}</span></summary>
+              <div class="theme-body">
+                <label class="pack-field"><span>{{ tr("Stage name", "Название этапа") }}</span><input type="text" maxlength="60" [value]="round.name" (input)="round.name = $any($event.target).value" /></label>
+                <div class="question-list">
+                  @for (question of round.questions; track question.id; let questionIndex = $index) {
+                    <details class="question-card">
+                      <summary><span>{{ tr("Question", "Вопрос") }} {{ questionIndex + 1 }}</span><span>{{ question.answers.length }} {{ tr("answers", "ответов") }}</span></summary>
+                      <div class="question-form crowd-question-form">
+                        <label class="pack-field wide"><span>{{ tr("Question text *", "Текст вопроса *") }}</span><textarea rows="3" [value]="question.text" (input)="question.text = $any($event.target).value"></textarea></label>
+                        <div class="attachment-field"><span>{{ tr("Question image", "Картинка вопроса") }}</span><label class="file-button">＋ {{ tr("IMAGE", "КАРТИНКА") }}<input #crowdImage type="file" accept="image/*" (change)="attachCrowdQuestionImage(question, crowdImage)" /></label>@if (question.image; as image) { <span class="attachment-chip">{{ image.name }} <button type="button" (click)="question.image = null; crowdImage.value = ''">×</button></span> }</div>
+                        <div class="crowd-answer-editor"><span class="eyebrow">{{ tr("POPULAR ANSWERS", "ПОПУЛЯРНЫЕ ОТВЕТЫ") }}</span>@for (answer of question.answers; track answer.id; let answerIndex = $index) { <div class="crowd-answer-editor-row"><b>{{ answerIndex + 1 }}</b><input type="text" maxlength="100" [value]="answer.text" (input)="answer.text = $any($event.target).value" [placeholder]="tr('Answer', 'Ответ')" /><input type="number" min="1" max="999" [value]="answer.points" (input)="setCrowdAnswerPoints(answer, $any($event.target).value)" /><button type="button" [disabled]="question.answers.length <= (round.kind === 'big' ? 15 : 6)" (click)="removeCrowdAnswer(question, answerIndex)">×</button></div> }</div>
+                        <div class="question-card-actions"><button class="danger-action" type="button" [disabled]="round.questions.length <= 1" (click)="removeCrowdQuestion(round, questionIndex)">− {{ tr("DELETE QUESTION", "УДАЛИТЬ ВОПРОС") }}</button><button class="add-content-button" type="button" [disabled]="question.answers.length >= (round.kind === 'big' ? 15 : 12)" (click)="addCrowdAnswer(question)">＋ {{ tr("ANSWER", "ОТВЕТ") }}</button></div>
+                      </div>
+                    </details>
+                  }
+                </div>
+                <button class="add-content-button" type="button" [disabled]="round.questions.length >= 8" (click)="addCrowdQuestion(round)">＋ {{ tr("ADD QUESTION", "ДОБАВИТЬ ВОПРОС") }}</button>
+              </div>
+            </details>
+          }
+        </section>
       } @else {
         <nav class="round-tabs" aria-label="Rounds">
           @for (round of pack.rounds; track round.id; let roundIndex = $index) {
