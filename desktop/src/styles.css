@@ -350,9 +350,10 @@ img { -webkit-tap-highlight-color: transparent; }
 .final-answer-entry-grid input { text-align:left; }
 .crowd-pack-editor { display:grid; gap:.8rem; }
 .crowd-round-editor .theme-body { display:grid; gap:.75rem; }
-.crowd-question-form { grid-template-columns:minmax(0,1fr); }
-.crowd-answer-editor { display:grid; gap:.35rem; }
-.crowd-answer-editor-row { display:grid; grid-template-columns:2rem minmax(0,1fr) 6rem 2.4rem; gap:.35rem; align-items:center; }
+.crowd-question-form { grid-template-columns:minmax(0,1fr)!important; }
+.crowd-question-form > * { grid-column:1 / -1; }
+.crowd-answer-editor { display:grid; width:100%; gap:.45rem; }
+.crowd-answer-editor-row { display:grid; width:100%; grid-template-columns:2rem minmax(12rem,1fr) 7rem 2.4rem; gap:.45rem; align-items:center; }
 .crowd-answer-editor-row b { color:#ffc763; text-align:center; }
 .crowd-answer-editor-row input { min-width:0; padding:.55rem; border:2px solid #62436e; border-radius:.3rem; color:#fff6d5; background:#170f28; font:inherit; }
 .crowd-answer-editor-row button { height:2.25rem; border:2px solid #8a4558; color:#ffaaa7; background:#351725; }

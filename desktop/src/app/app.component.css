@@ -2166,6 +2166,13 @@ button.online-table:not(:disabled):hover,.online-table button:not(:disabled):hov
 .packs-directory button:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
 .packs-directory button:disabled { cursor: wait; opacity: 0.55; }
 
+.pack-type-tabs { display: flex; gap: 0.55rem; padding: 0.15rem 0; }
+.pack-type-tabs button { display: flex; min-height: 2.55rem; align-items: center; gap: 0.55rem; padding: 0.45rem 0.8rem; border: 2px solid #704874; border-radius: 0.55rem; color: #b99cc1; background: rgba(35, 18, 49, 0.82); font: inherit; font-size: 0.66rem; font-weight: 950; }
+.pack-type-tabs button span { color: var(--yellow); }
+.pack-type-tabs button.active { border-color: var(--yellow); color: #2a1737; background: var(--yellow); }
+.pack-type-tabs button.active span { color: #6a3242; }
+.packs-tab-empty { min-height: 9rem; }
+
 .packs-empty {
   display: grid;
   min-height: 20rem;
