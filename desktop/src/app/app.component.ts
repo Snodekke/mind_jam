@@ -386,6 +386,7 @@ export class AppComponent implements OnInit, OnDestroy {
   crowdActiveTeam = 1;
   crowdRoundPot = 0;
   crowdMisses = 0;
+  crowdHostAnswersVisible = false;
   crowdResponderId: string | null = null;
   crowdRoundWinnerTeam: number | null = null;
   readonly crowdBigWagers = new Map<number, number>();
@@ -465,6 +466,15 @@ export class AppComponent implements OnInit, OnDestroy {
   }
   isCrowdCaptain(botId: string): boolean { return [...this.crowdCaptainIds.values()].includes(botId); }
   isCrowdAnswerRevealed(answerId: string): boolean { return this.crowdRevealedAnswerIds.has(answerId); }
+  get canToggleCrowdHostAnswers(): boolean {
+    return this.isCrowdGame && this.offlineRoomMode === "hotseat" && !this.onlineRole && !this.isParticipantGameView;
+  }
+  get showCrowdHostAnswers(): boolean {
+    return !this.isParticipantGameView && (!this.canToggleCrowdHostAnswers || this.crowdHostAnswersVisible);
+  }
+  toggleCrowdHostAnswers(): void {
+    if (this.canToggleCrowdHostAnswers) this.crowdHostAnswersVisible = !this.crowdHostAnswersVisible;
+  }
   crowdAnswerScore(answer: CrowdAnswer): number {
     if (this.crowdRound?.kind === "reverse") {
       const maximum = Math.max(...(this.crowdQuestion?.answers.map((candidate) => candidate.points) ?? [answer.points]));
@@ -1780,6 +1790,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private startCrowdGame(): void {
+    this.crowdHostAnswersVisible = false;
     this.clearOfflineGameTimers();
     this.offlineGameStarted = true;
     this.offlineGamePaused = false;
@@ -1834,6 +1845,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private prepareCrowdRoundIntro(): void {
+    this.crowdHostAnswersVisible = false;
     const round = this.crowdRound;
     if (!round) {
       this.finishCrowdGame();
@@ -1851,6 +1863,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   startCrowdRoundQuestion(): void {
     if (this.onlineRole === "participant" || !this.crowdQuestion) return;
+    this.crowdHostAnswersVisible = false;
     this.crowdRevealedAnswerIds.clear();
     this.crowdRoundPot = 0;
     this.crowdMisses = 0;
@@ -1912,6 +1925,14 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
     this.crowdRoundPot += points;
+    if (!this.offlineTeamMode) {
+      this.addOfflineScore(responder, points);
+      this.clearCrowdResponder();
+      if (this.crowdQuestion?.answers.every((candidate) => this.crowdRevealedAnswerIds.has(candidate.id))) this.finishCrowdQuestion(this.crowdSideNumber(responder) ?? 1);
+      else this.scheduleCrowdBotTurn();
+      void this.publishOnlineGameState();
+      return;
+    }
     if (this.crowdGamePhase === "faceoff") {
       this.crowdActiveTeam = this.crowdSideNumber(responder) ?? 1;
       this.crowdGamePhase = "team-play";
@@ -1951,6 +1972,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private clearCrowdResponder(): void {
+    this.crowdHostAnswersVisible = false;
     if (this.crowdResponderId) this.offlineBotAnimations.set(this.crowdResponderId, "idle");
     this.crowdResponderId = null;
     this.offlineResponderBotId = null;
@@ -1966,7 +1988,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private finishCrowdQuestion(winningTeam: number): void {
     const winner = this.crowdSideRepresentative(winningTeam);
-    if (winner && this.crowdRound?.kind !== "reverse") this.addOfflineScore(winner, this.crowdRoundPot);
+    if (winner && this.offlineTeamMode && this.crowdRound?.kind !== "reverse") this.addOfflineScore(winner, this.crowdRoundPot);
     this.clearCrowdResponder();
     this.crowdRoundWinnerTeam = winningTeam;
     this.crowdGamePhase = "round-result";
