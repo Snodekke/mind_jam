@@ -1,5 +1,6 @@
 .env
 /release/
+/releases/
 /packs/*
 !/packs/.gitkeep
 !/packs/crowd-code-demo.json
